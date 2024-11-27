@@ -1,30 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { PlusIcon, PencilIcon, ChevronDownIcon, ChevronUpIcon, DocumentIcon } from '@heroicons/react/24/solid';
+import Slider from "react-slick"; // Importando o carrossel
+import { PlusIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
+
+import "slick-carousel/slick/slick.css"; 
+import "slick-carousel/slick/slick-theme.css";
 
 const Projects = () => {
-  const [showModal, setShowModal] = useState(false);
   const [projects, setProjects] = useState([]);
-  const [formData, setFormData] = useState({
-    projeto: '',
-    empresa: '',
-    responsavel: '',
-    prazo: '',
-    saldo: '',
-    layout: null,
-    estimativaHoras: ''
-  });
+  const [activities, setActivities] = useState({});
+  const [showPDFModal, setShowPDFModal] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
+  const [pdfURL, setPdfURL] = useState('');
   const [activitiesVisibility, setActivitiesVisibility] = useState({});
-  const [showActivityForm, setShowActivityForm] = useState(false);  // Para controle do popup de adicionar atividade
-  const [activityData, setActivityData] = useState({
-    descricao: '',
-    data: '',
-    responsavel: '',
-    quantidadePessoas: '',
-    anexo: null
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [newProject, setNewProject] = useState({
+    NomeProjeto: '',
+    Empresa: '',
+    Prazo: '',
+    Responsavel: '',
+    EstimativaHoras: '',
+    Layout: null,
   });
-
-  const [projectId, setProjectId] = useState(null);
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [activityForm, setActivityForm] = useState({
+    QualAtividade: '',
+    DataDaAtividade: '',
+    QuantasPessoas: '',
+    HoraInicial: '',
+    HoraFinal: '',
+    Responsavel: '',
+    Anexo: null, // Novo campo para o anexo
+  });
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -35,393 +44,579 @@ const Projects = () => {
         console.error('Erro ao carregar os projetos:', error);
       }
     };
-
     fetchProjects();
   }, []);
 
-  const handleOpenModal = () => setShowModal(true);
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setFormData({
-      projeto: '',
-      empresa: '',
-      responsavel: '',
-      prazo: '',
-      saldo: '',
-      layout: null,
-      estimativaHoras: ''
-    });
-  };
-
-  const handleChange = (e) => {
+  const handleNewProjectChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+    setNewProject((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file && (file.type === 'application/pdf' || file.type === 'application/octet-stream')) {
-      setFormData({
-        ...formData,
-        layout: file
-      });
-    } else {
-      alert('Por favor, anexe um arquivo PDF ou DWG.');
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const saldoConvertido = parseFloat(formData.saldo.replace(/[^\d,.-]/g, '').replace(',', '.'));
-    const estimativaHorasConvertida = parseInt(formData.estimativaHoras.replace(/[^\d]/g, ''), 10);
-
-    const data = new FormData();
-    data.append('NomeProjeto', formData.projeto);
-    data.append('Empresa', formData.empresa);
-    data.append('Responsavel', formData.responsavel);
-    data.append('Prazo', new Date(formData.prazo).toISOString().slice(0, 10));
-    data.append('Saldo', saldoConvertido);
-    data.append('EstimativaHoras', estimativaHorasConvertida);
-    if (formData.layout) {
-      data.append('layout', formData.layout);
-    }
-
-    try {
-      await axios.post('http://localhost:4001/projetos', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      const updatedResponse = await axios.get('http://localhost:4001/projetos');
-      setProjects(updatedResponse.data);
-      handleCloseModal();
-    } catch (error) {
-      console.error('Erro ao adicionar o projeto:', error);
-      alert('Erro ao adicionar o projeto. Verifique os dados e tente novamente.');
-    }
-  };
-
-  const toggleActivities = (id) => {
-    setActivitiesVisibility((prev) => ({
+    setNewProject((prev) => ({
       ...prev,
-      [id]: !prev[id]
+      Layout: file,
     }));
   };
 
-  const openLayoutModal = async (projectId) => {
-    try {
-      const response = await axios.get(`http://localhost:4001/projetos/layout/${projectId}`);
-      const layoutUrl = response.data.layoutUrl;
-      window.open(layoutUrl, '_blank');
-    } catch (error) {
-      alert('Erro ao abrir o layout. Tente novamente mais tarde.');
-    }
+  const handleOpenPDFModal = (url) => {
+    setPdfURL(url);
+    setShowPDFModal(true);
   };
+  
+  const handleClosePDFModal = () => {
+    setShowPDFModal(false);
+    setPdfURL('');
+  }; 
 
-  // Função para abrir o popup de "Adicionar Atividade"
-  const handleOpenActivityForm = (projectId) => {
-    setProjectId(projectId);  // Define o projeto que estamos adicionando atividade
-    setShowActivityForm(true);  // Exibe o formulário de adicionar atividade
-  };
-
-  // Função para fechar o popup de "Adicionar Atividade"
-  const handleCloseActivityForm = () => {
-    setShowActivityForm(false);
-    setActivityData({
-      descricao: '',
-      data: '',
-      responsavel: '',
-      quantidadePessoas: '',
-      anexo: null
-    });
-  };
-
-  const handleActivityChange = (e) => {
-    const { name, value } = e.target;
-    setActivityData({
-      ...activityData,
-      [name]: value
-    });
-  };
-
-  const handleActivityFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file && (file.type === 'application/pdf' || file.type === 'application/octet-stream')) {
-      setActivityData({
-        ...activityData,
-        anexo: file
-      });
-    } else {
-      alert('Por favor, anexe um arquivo PDF ou DWG.');
-    }
-  };
-
-  const handleActivitySubmit = async (e) => {
+  const handleAddProject = async (e) => {
     e.preventDefault();
-
-    const data = new FormData();
-    data.append('Descricao', activityData.descricao);
-    data.append('Data', new Date(activityData.data).toISOString().slice(0, 10));
-    data.append('Responsavel', activityData.responsavel);
-    data.append('QuantidadePessoas', activityData.quantidadePessoas);
-    if (activityData.anexo) {
-      data.append('Anexo', activityData.anexo);
+  
+    const formData = new FormData();
+    formData.append('NomeProjeto', newProject.NomeProjeto);
+    formData.append('Empresa', newProject.Empresa);
+    formData.append('Prazo', newProject.Prazo);
+    formData.append('Responsavel', newProject.Responsavel);
+    formData.append('EstimativaHoras', newProject.EstimativaHoras);
+  
+    if (newProject.Layout) {
+      formData.append('layout', newProject.Layout);
     }
-
+  
     try {
-      await axios.post(`http://localhost:4001/projetos/${projectId}/atividades`, data, {
+      const response = await axios.post('http://localhost:4001/projetos', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-
-      const updatedProjects = [...projects];
-      const projectIndex = updatedProjects.findIndex(project => project.id === projectId);
-      updatedProjects[projectIndex].Atividades.push(activityData);  // Atualiza o projeto com a nova atividade
-
-      setProjects(updatedProjects);
-      handleCloseActivityForm();  // Fecha o formulário de adicionar atividade
+  
+      if (response.status === 201) {
+        const projectsResponse = await axios.get('http://localhost:4001/projetos');
+        setProjects(projectsResponse.data);
+        setShowProjectModal(false);
+        setNewProject({
+          NomeProjeto: '',
+          Empresa: '',
+          Prazo: '',
+          Responsavel: '',
+          EstimativaHoras: '',
+          Layout: null,
+        });
+      } else {
+        alert('Erro ao adicionar projeto. Tente novamente.');
+      }
     } catch (error) {
-      console.error('Erro ao adicionar a atividade:', error);
-      alert('Erro ao adicionar a atividade. Tente novamente mais tarde.');
+      console.error('Erro ao adicionar projeto:', error.response || error);
+      alert('Erro ao adicionar projeto. Verifique os dados e tente novamente.');
+    }
+  };
+
+  const toggleActivities = async (id) => {
+    setActivitiesVisibility((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+
+    if (!activities[id] && !activitiesVisibility[id]) {
+      try {
+        const response = await axios.get(`http://localhost:4001/registroDeAtividades/projeto/${id}`);
+        setActivities((prev) => ({ ...prev, [id]: response.data }));
+      } catch (error) {
+        console.error('Erro ao buscar atividades:', error);
+      }
     }
   };
 
   const formatDate = (date) => new Date(date).toLocaleDateString('pt-BR');
-  
-  const formatHours = (saldo) => {
-    return `${saldo} horas`;
+
+  const handleActivityModalToggle = (projectId) => {
+    setSelectedProjectId(projectId);
+    setShowActivityModal(!showActivityModal);
   };
 
-  const checkStatus = (prazo) => {
-    const today = new Date();
-    const dueDate = new Date(prazo);
-    return dueDate < today ? 'Atrasada' : 'Dentro do Prazo';
+  const handleActivityChange = (e) => {
+    const { name, value } = e.target;
+    setActivityForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleFileChangeActivity = (e) => {
+    const file = e.target.files[0];
+    setActivityForm((prev) => ({
+      ...prev,
+      Anexo: file, // Armazena o arquivo anexo no estado
+    }));
+  };
+
+  const handleAddActivity = async (e) => {
+    e.preventDefault();
+  
+    try {
+      const formData = new FormData();
+      formData.append('QualAtividade', activityForm.QualAtividade);
+      formData.append('DataDaAtividade', activityForm.DataDaAtividade);
+      formData.append('QuantasPessoas', parseInt(activityForm.QuantasPessoas, 10));
+      formData.append('HoraInicial', activityForm.HoraInicial);
+      formData.append('HoraFinal', activityForm.HoraFinal);
+      formData.append('Responsavel', activityForm.Responsavel);
+      formData.append('ProjetoID', selectedProjectId); // Preenche automaticamente com o selectedProjectId
+
+      if (activityForm.Anexo) {
+        formData.append('Anexo', activityForm.Anexo); // Adiciona o anexo ao FormData
+      }
+
+      const postResponse = await axios.post(`http://localhost:4001/registroDeAtividades`, formData);
+  
+      const getResponse = await axios.get(`http://localhost:4001/registroDeAtividades/projeto/${selectedProjectId}`);
+      setActivities((prev) => ({ ...prev, [selectedProjectId]: getResponse.data }));
+  
+      setShowActivityModal(false);
+      setActivityForm({
+        QualAtividade: '',
+        DataDaAtividade: '',
+        QuantasPessoas: '',
+        HoraInicial: '',
+        HoraFinal: '',
+        Responsavel: '',
+        Anexo: null, // Resetar o anexo
+      });
+    } catch (error) {
+      console.error('Erro ao adicionar atividade:', error);
+      if (error.response) {
+        alert(`Erro ao adicionar atividade: ${error.response.data.error || 'Verifique os dados e tente novamente.'}`);
+      } else {
+        alert('Erro ao adicionar atividade. Verifique os dados e tente novamente.');
+      }
+    }
+  };
+
+  const handleShowProjectModal = () => {
+    setShowProjectModal(true);
+  };
+
+  const handleLoadAttachments = async (activityId) => {
+    try {
+      // Requisição para obter os anexos da API
+      const response = await axios.get(`http://localhost:4001/registroDeAtividades/projeto/${activityId}`);
+  
+      const attachmentsData = response.data;
+  
+      if (!attachmentsData || attachmentsData.length === 0) {
+        alert('Nenhum anexo encontrado para esta atividade.');
+        return;
+      }
+  
+      const attachments = attachmentsData.map((attachment) => {
+        const { ano, mes, dia, qualAtividade, filename } = attachment;
+        const fileUrl = `http://localhost:4001/uploads/registroDeAtividades/${ano}/${mes}/${dia}/${qualAtividade}/${filename}`;
+        return { ...attachment, fileUrl };
+      });
+      
+      setAttachments(attachments); // Armazena os anexos no estado
+      setShowAttachmentsModal(true); // Exibe o modal de anexos
+    } catch (error) {
+      console.error("Erro ao carregar anexos:", error);
+    }
+  }; 
+
+  const handleCloseAttachmentsModal = () => {
+    setShowAttachmentsModal(false);
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-semibold">Projetos</h2>
-      <div className="flex justify-end">
+    <div className="p-6 bg-gray-50">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-semibold text-gray-800">Projetos</h2>
         <button
-          onClick={handleOpenModal}
-          className="mt-6 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          onClick={handleShowProjectModal}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center"
         >
-          <PlusIcon className="h-5 w-5 inline-block mr-1" /> Adicionar Projeto
+          <PlusIcon className="h-5 w-5 mr-2" />
+          Novo Projeto
         </button>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 md:w-1/3">
-            <h3 className="text-lg font-semibold mb-4">Adicionar Detalhes do Projeto</h3>
-            <form onSubmit={handleSubmit}>
-              {Object.entries(formData).map(([key, value]) => (
-                key !== 'layout' && (
-                  <div className="mb-4" key={key}>
-                    <label className="block text-sm font-medium text-gray-700 capitalize">{key}</label>
-                    <input
-                      type={key === 'prazo' ? 'date' : 'text'}
-                      name={key}
-                      value={value}
-                      onChange={handleChange}
-                      className="mt-1 block w-full border border-gray-300 rounded p-2"
-                    />
-                  </div>
-                )
-              ))}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Layout (PDF ou DWG)</label>
-                <input
-                  type="file"
-                  accept=".pdf,.dwg"
-                  onChange={handleFileChange}
-                  className="mt-1 block w-full text-sm text-gray-500"
-                />
-              </div>
-              <div className="flex justify-end space-x-4">
-                <button type="button" onClick={handleCloseModal} className="px-4 py-2 text-gray-500 hover:text-gray-700">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Adicionar Projeto</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Popup de adicionar atividade */}
-      {showActivityForm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 md:w-1/3">
-            <h3 className="text-lg font-semibold mb-4">Adicionar Atividade</h3>
-            <form onSubmit={handleActivitySubmit}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Descrição</label>
-                <input
-                  type="text"
-                  name="descricao"
-                  value={activityData.descricao}
-                  onChange={handleActivityChange}
-                  className="mt-1 block w-full border border-gray-300 rounded p-2"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Data</label>
-                <input
-                  type="date"
-                  name="data"
-                  value={activityData.data}
-                  onChange={handleActivityChange}
-                  className="mt-1 block w-full border border-gray-300 rounded p-2"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Responsável</label>
-                <input
-                  type="text"
-                  name="responsavel"
-                  value={activityData.responsavel}
-                  onChange={handleActivityChange}
-                  className="mt-1 block w-full border border-gray-300 rounded p-2"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Quantidade de Pessoas</label>
-                <input
-                  type="number"
-                  name="quantidadePessoas"
-                  value={activityData.quantidadePessoas}
-                  onChange={handleActivityChange}
-                  className="mt-1 block w-full border border-gray-300 rounded p-2"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Anexo (PDF ou DWG)</label>
-                <input
-                  type="file"
-                  accept=".pdf,.dwg"
-                  onChange={handleActivityFileChange}
-                  className="mt-1 block w-full text-sm text-gray-500"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-4">
-                <button type="button" onClick={handleCloseActivityForm} className="px-4 py-2 text-gray-500 hover:text-gray-700">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Adicionar Atividade</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <table className="min-w-full mt-6 table-auto">
-        <thead>
-          <tr className="bg-gray-50">
-            <th className="px-4 py-2 border">Nome</th>
-            <th className="px-4 py-2 border">Responsável</th>
-            <th className="px-4 py-2 border">Prazo</th>
-            <th className="px-4 py-2 border">Status</th>
-            <th className="px-4 py-2 border">Saldo</th>
-            <th className="px-4 py-2 border">Layout</th>
-            <th className="px-4 py-2 border">Atividades</th>
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map((project) => (
-            <React.Fragment key={project.id}>
-              <tr>
-                <td className="px-4 py-2 border">{project.NomeProjeto}</td>
-                <td className="px-4 py-2 border">{project.Responsavel}</td>
-                <td className="px-4 py-2 border">{formatDate(project.Prazo)}</td>
-                <td className="px-4 py-2 border">{checkStatus(project.Prazo)}</td>
-                <td className="px-4 py-2 border">{formatHours(project.Saldo)}</td>
-
-                <td className="px-4 py-2 border">
-                  {project.layout && (
+      <div className="overflow-x-auto">
+        <table className="table-auto w-full border-separate border border-gray-300 rounded-lg shadow-md">
+          <thead className="bg-gray-200 text-gray-700 text-sm">
+            <tr>
+              <th className="p-3 text-left">Nome do Projeto</th>
+              <th className="p-3 text-left">Empresa</th>
+              <th className="p-3 text-left">Prazo</th>
+              <th className="p-3 text-left">Responsável</th>
+              <th className="p-3 text-left">Estimativa de Horas</th>
+              <th className="p-3 text-left">Layout</th>
+              <th className="p-3 text-center">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="text-gray-700 text-sm">
+            {projects.map((project) => (
+              <React.Fragment key={project.ID}>
+                <tr className="border-b hover:bg-gray-50">
+                  <td className="p-3">{project.NomeProjeto}</td>
+                  <td className="p-3">{project.Empresa}</td>
+                  <td className="p-3">{formatDate(project.Prazo)}</td>
+                  <td className="p-3">{project.Responsavel}</td>
+                  <td className="p-3">{project.EstimativaHoras}</td>
+                  <td className="p-3">
+                    {project.Layout ? (
+                      <button
+                        onClick={() => handleOpenPDFModal(`http://localhost:4001/uploads/${project.Layout}`)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Abrir Layout
+                      </button>
+                    ) : (
+                      <span className="text-gray-500">Sem Layout</span>
+                    )}
+                  </td>
+                  <td className="p-3 text-center">
                     <button
-                      onClick={() => openLayoutModal(project.id)}
-                      className="text-blue-500 hover:text-blue-700"
+                      onClick={() => toggleActivities(project.ID)}
+                      className="text-blue-500 hover:text-blue-700 mr-2 flex items-center justify-center"
                     >
-                      <DocumentIcon className="h-5 w-5 inline-block" />
-                    </button>
-                  )}
-                </td>
-
-                <td className="px-4 py-2 border">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => toggleActivities(project.id)}
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      {activitiesVisibility[project.id] ? (
+                      {activitiesVisibility[project.ID] ? (
                         <ChevronUpIcon className="h-5 w-5" />
                       ) : (
                         <ChevronDownIcon className="h-5 w-5" />
                       )}
+                      {activitiesVisibility[project.ID] ? 'Ocultar' : 'Exibir'}
                     </button>
-
                     <button
-                      onClick={() => handleOpenActivityForm(project.id)}
-                      className="text-blue-500 hover:text-blue-700"
+                      onClick={() => handleActivityModalToggle(project.ID)}
+                      className="text-blue-500 hover:text-blue-700 flex items-center justify-center"
                     >
-                      <PencilIcon className="h-5 w-5" />
+                      <PlusIcon className="h-5 w-5 mr-1" />
+                      Adicionar Atividade
                     </button>
-                  </div>
-                </td>
-              </tr>
-              {activitiesVisibility[project.id] && (
-                <tr>
-                  <td colSpan="7" className="px-4 py-2 border">
-                    {project.Atividades && project.Atividades.length > 0 ? (
-                      <table className="w-full mt-4">
-                        <thead>
-                          <tr className="bg-gray-50">
-                            <th className="px-4 py-2 border">Descrição</th>
-                            <th className="px-4 py-2 border">Data</th>
-                            <th className="px-4 py-2 border">Responsável</th>
-                            <th className="px-4 py-2 border">Quant. Pessoas</th>
-                            <th className="px-4 py-2 border">Anexo</th>
+                  </td>
+                </tr>
+                {activitiesVisibility[project.ID] && (
+                  <tr>
+                    <td colSpan="7" className="p-4">
+                      <h3 className="text-xl font-semibold">Atividades</h3>
+                      <table className="table-auto w-full border-collapse border border-gray-300 mt-4">
+                        <thead className="bg-gray-100 text-gray-700 text-sm">
+                          <tr>
+                            <th className="p-3">Qual Atividade</th>
+                            <th className="p-3">Data</th>
+                            <th className="p-3">Quantas Pessoas</th>
+                            <th className="p-3">Hora Inicial</th>
+                            <th className="p-3">Hora Final</th>
+                            <th className="p-3">Responsável</th>
+                            <th className="p-3">Criado</th>
+                            <th className="p-3">Anexos</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {project.Atividades.map((activity) => (
-                            <tr key={activity.id}>
-                              <td className="px-4 py-2 border">{activity.descricao}</td>
-                              <td className="px-4 py-2 border">{formatDate(activity.data)}</td>
-                              <td className="px-4 py-2 border">{activity.responsavel}</td>
-                              <td className="px-4 py-2 border">{activity.quantidadePessoas}</td>
-                              <td className="px-4 py-2 border">
-                                {activity.anexo && (
-                                  <button
-                                    onClick={() => openLayoutModal(activity.id)}
-                                    className="text-blue-500 hover:text-blue-700"
-                                  >
-                                    Visualizar Anexo
-                                  </button>
-                                )}
+                          {activities[project.ID]?.map((activity) => (
+                            <tr key={activity.ID}>
+                              <td className="p-3">{activity.QualAtividade}</td>
+                              <td className="p-3">{formatDate(activity.DataDaAtividade)}</td>
+                              <td className="p-3">{activity.QuantasPessoas}</td>
+                              <td className="p-3">
+                                {new Date(activity.HoraInicial).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                              <td className="p-3">
+                                {new Date(activity.HoraFinal).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                              <td className="p-3">{activity.Responsavel}</td>
+                              <td className="p-3">
+                                {new Date(activity.CriadoEm).toLocaleDateString("pt-BR")} {new Date(activity.CriadoEm).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                              <td className="p-3">
+                                <button
+                                  onClick={() => handleLoadAttachments(activity.ID)}
+                                  className="text-blue-500 hover:text-blue-700"
+                                >
+                                  Mostrar Anexos
+                                </button>
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                    ) : (
-                      <p className="text-sm text-gray-500">Nenhuma atividade encontrada.</p>
-                    )}
-                  </td>
-                </tr>
-              )}
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal de Novo Projeto */}
+      {showProjectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-1/3">
+            <h3 className="text-lg font-semibold">Adicionar Projeto</h3>
+            <form onSubmit={handleAddProject}>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Nome do Projeto</label>
+                <input
+                  type="text"
+                  name="NomeProjeto"
+                  value={newProject.NomeProjeto}
+                  onChange={handleNewProjectChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Empresa</label>
+                <input
+                  type="text"
+                  name="Empresa"
+                  value={newProject.Empresa}
+                  onChange={handleNewProjectChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Prazo</label>
+                <input
+                  type="date"
+                  name="Prazo"
+                  value={newProject.Prazo}
+                  onChange={handleNewProjectChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Responsável</label>
+                <input
+                  type="text"
+                  name="Responsavel"
+                  value={newProject.Responsavel}
+                  onChange={handleNewProjectChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Estimativa de Horas</label>
+                <input
+                  type="number"
+                  name="EstimativaHoras"
+                  value={newProject.EstimativaHoras}
+                  onChange={handleNewProjectChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Layout</label>
+                <input
+                  type="file"
+                  name="Layout"
+                  onChange={handleFileChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                />
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowProjectModal(false)}
+                  className="bg-gray-500 text-white px-4 py-2 rounded-lg mr-2"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg"
+                >
+                  Adicionar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+     {showAttachmentsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-2/3 max-w-4xl">
+            <h3 className="text-lg font-semibold">Anexos</h3>
+            <button
+              onClick={handleCloseAttachmentsModal}
+              className="text-gray-500 hover:text-gray-800 absolute top-4 right-4"
+            >
+              Fechar
+            </button>
+
+            <Slider
+              dots={true}
+              infinite={true}
+              speed={500}
+              slidesToShow={1}
+              slidesToScroll={1}
+            >
+              {attachments.map((attachment, index) => (
+                <div key={index} className="flex justify-center items-center">
+                  {attachment.tipo === 'image' ? (
+                    <img 
+                      src={attachment.fileUrl} 
+                      alt={attachment.nome} 
+                      className="max-w-full max-h-80 object-contain" 
+                    />
+                  ) : attachment.tipo === 'pdf' ? (
+                    <iframe
+                      src={attachment.fileUrl}
+                      className="w-full h-80"
+                      title={attachment.nome}
+                    />
+                  ) : (
+                    <div className="text-center text-gray-500">Tipo de arquivo não suportado</div>
+                  )}
+                </div>
+              ))}
+            </Slider>
+          </div>
+        </div>
+      )}
+      {showPDFModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z -50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-2/3 h-4/5 flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Visualizar Layout</h3>
+              <button
+                onClick={handleClosePDFModal}
+                className="text-gray-500 hover:text-gray-800"
+              >
+                Fechar
+              </button>
+            </div>
+            <iframe
+              src={pdfURL}
+              title="PDF Viewer"
+              className="flex-grow w-full border rounded"
+              style={{ height: 'calc(100% - 50px)' }}
+            />
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => window.open(pdfURL, '_blank')}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg mr-2"
+              >
+                Imprimir
+              </button>
+              <button
+                onClick={handleClosePDFModal}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Atividade */}
+      {showActivityModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-1/3">
+            <h3 className="text-lg font-semibold">Adicionar Atividade</h3>
+            <form onSubmit={handleAddActivity}>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Qual Atividade</label>
+                <input
+                  type="text"
+                  name="QualAtividade"
+                  value={activityForm.QualAtividade}
+                  onChange={handleActivityChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Data</label>
+                <input
+                  type="date"
+                  name="DataDaAtividade"
+                  value={activityForm.DataDaAtividade}
+                  onChange={handleActivityChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Quantas Pessoas</label>
+                <input
+                  type="number"
+                  name="QuantasPessoas"
+                  value={activityForm.QuantasPessoas}
+                  onChange={handleActivityChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Hora Inicial</label>
+                <input
+                  type="time"
+                  name="HoraInicial"
+                  value={activityForm.HoraInicial}
+                  onChange={handleActivityChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Hora Final</label>
+                <input
+                  type="time"
+                  name="HoraFinal"
+                  value={activityForm.HoraFinal}
+                  onChange={handleActivityChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Responsável</label>
+                <input
+                  type="text"
+                  name="Responsavel"
+                  value={activityForm.Responsavel}
+                  onChange={handleActivityChange}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                  required
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium">Anexo</label>
+                <input
+                  type="file"
+                  name="Anexo"
+                  onChange={handleFileChangeActivity}
+                  className="w-full p-2 border border-gray-300 rounded mt-1"
+                />
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowActivityModal(false)}
+                  className ="bg-gray-500 text-white px-4 py-2 rounded-lg mr-2"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg"
+                >
+                  Adicionar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
