@@ -32,8 +32,8 @@ const Projects = () => {
     HoraInicial: '',
     HoraFinal: '',
     Responsavel: '',
-    Anexo: null, // Novo campo para o anexo
-  });
+    Anexos: [], // Inicializado como array vazio
+  });  
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -46,6 +46,16 @@ const Projects = () => {
     };
     fetchProjects();
   }, []);
+
+    // Configuração do carrossel Slick
+    const sliderSettings = {
+      dots: true,
+      infinite: true,
+      speed: 500,
+      slidesToShow: 1,
+      slidesToScroll: 1,
+      arrows: true, // Ativa as setas de navegação
+    };
 
   const handleNewProjectChange = (e) => {
     const { name, value } = e.target;
@@ -147,12 +157,13 @@ const Projects = () => {
   };
 
   const handleFileChangeActivity = (e) => {
-    const file = e.target.files[0];
+    const files = Array.from(e.target.files); // Converte FileList para um array
     setActivityForm((prev) => ({
       ...prev,
-      Anexo: file, // Armazena o arquivo anexo no estado
+      Anexos: [...prev.Anexos, ...files], // Garante que arquivos anteriores não sejam sobrescritos
     }));
   };
+  
 
   const handleAddActivity = async (e) => {
     e.preventDefault();
@@ -165,15 +176,26 @@ const Projects = () => {
       formData.append('HoraInicial', activityForm.HoraInicial);
       formData.append('HoraFinal', activityForm.HoraFinal);
       formData.append('Responsavel', activityForm.Responsavel);
-      formData.append('ProjetoID', selectedProjectId); // Preenche automaticamente com o selectedProjectId
-
-      if (activityForm.Anexo) {
-        formData.append('Anexo', activityForm.Anexo); // Adiciona o anexo ao FormData
-      }
-
-      const postResponse = await axios.post(`http://localhost:4001/registroDeAtividades`, formData);
+      formData.append('ProjetoID', selectedProjectId);
   
-      const getResponse = await axios.get(`http://localhost:4001/registroDeAtividades/projeto/${selectedProjectId}`);
+      // Adicionar múltiplos anexos ao FormData
+      activityForm.Anexos?.forEach((file) => {
+        formData.append('Anexo', file); // Backend espera "Anexo" como chave para todos os arquivos
+      });
+  
+      const postResponse = await axios.post(
+        `http://localhost:4001/registroDeAtividades`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+  
+      const getResponse = await axios.get(
+        `http://localhost:4001/registroDeAtividades/projeto/${selectedProjectId}`
+      );
       setActivities((prev) => ({ ...prev, [selectedProjectId]: getResponse.data }));
   
       setShowActivityModal(false);
@@ -184,7 +206,7 @@ const Projects = () => {
         HoraInicial: '',
         HoraFinal: '',
         Responsavel: '',
-        Anexo: null, // Resetar o anexo
+        Anexos: [], // Resetar os anexos para um array vazio
       });
     } catch (error) {
       console.error('Erro ao adicionar atividade:', error);
@@ -194,37 +216,63 @@ const Projects = () => {
         alert('Erro ao adicionar atividade. Verifique os dados e tente novamente.');
       }
     }
-  };
+  };  
 
   const handleShowProjectModal = () => {
     setShowProjectModal(true);
   };
 
+  const API_BASE_URL = "http://localhost:4001";
+
   const handleLoadAttachments = async (activityId) => {
     try {
-      // Requisição para obter os anexos da API
-      const response = await axios.get(`http://localhost:4001/registroDeAtividades/projeto/${activityId}`);
+      // Faz a requisição para obter os anexos da atividade
+      const response = await axios.get(`${API_BASE_URL}/registroDeAtividades/anexos/${activityId}`);
+      const attachmentsData = response.data.anexos; // Acesse a chave 'anexos' na resposta
   
-      const attachmentsData = response.data;
-  
+      // Verifica se há anexos
       if (!attachmentsData || attachmentsData.length === 0) {
-        alert('Nenhum anexo encontrado para esta atividade.');
+        alert("Nenhum anexo encontrado para esta atividade.");
         return;
       }
   
+      // Processa os anexos
       const attachments = attachmentsData.map((attachment) => {
-        const { ano, mes, dia, qualAtividade, filename } = attachment;
-        const fileUrl = `http://localhost:4001/uploads/registroDeAtividades/${ano}/${mes}/${dia}/${qualAtividade}/${filename}`;
-        return { ...attachment, fileUrl };
+        const { nome, url } = attachment;
+  
+        // Verifica se a URL existe e não está vazia
+        if (!url || url.trim() === "") {
+          console.warn("Anexo sem URL:", attachment);
+          return null; // Ignora anexos sem URL
+        }
+  
+        // Obtém a extensão do arquivo
+        const fileExtension = url.split(".").pop()?.toLowerCase();
+  
+        // Determina o tipo do arquivo com base na extensão
+        const tipo =
+          fileExtension === "pdf"
+            ? "pdf"
+            : ["jpg", "jpeg", "png", "gif"].includes(fileExtension)
+            ? "image"
+            : "unknown"; // Arquivo desconhecido
+  
+        // Retorna o anexo processado com nome, url e tipo
+        return { nome, url, tipo };
       });
-      
-      setAttachments(attachments); // Armazena os anexos no estado
-      setShowAttachmentsModal(true); // Exibe o modal de anexos
+  
+      // Filtra valores nulos (anexos sem URL) e atualiza o estado
+      setAttachments(attachments.filter(Boolean));
+  
+      // Exibe o modal de anexos
+      setShowAttachmentsModal(true);
+  
     } catch (error) {
       console.error("Erro ao carregar anexos:", error);
+      alert("Erro ao carregar anexos. Por favor, tente novamente mais tarde.");
     }
-  }; 
-
+  };  
+  
   const handleCloseAttachmentsModal = () => {
     setShowAttachmentsModal(false);
   };
@@ -441,43 +489,58 @@ const Projects = () => {
         </div>
       )}
 
-     {showAttachmentsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-2/3 max-w-4xl">
-            <h3 className="text-lg font-semibold">Anexos</h3>
-            <button
-              onClick={handleCloseAttachmentsModal}
-              className="text-gray-500 hover:text-gray-800 absolute top-4 right-4"
-            >
-              Fechar
-            </button>
+{showAttachmentsModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full md:w-2/3 lg:w-1/3 relative">
+      <h3 className="text-lg font-semibold">Anexos</h3>
+      <button
+        onClick={handleCloseAttachmentsModal}
+        className="text-gray-500 hover:text-gray-800 absolute top-4 right-4"
+      >
+        Fechar
+      </button>
+      <Slider {...sliderSettings}>
+        {/* Aqui, estamos utilizando o sliderSettings */}
+        {attachments.map((attachment, index) => {
+          const { nome, url } = attachment; // Usando o campo 'url'
 
-            <Slider
-              dots={true}
-              infinite={true}
-              speed={500}
-              slidesToShow={1}
-              slidesToScroll={1}
-            >
-              {attachments.map((attachment, index) => (
-                <div key={index} className="flex justify-center items-center">
-                  {attachment.tipo === 'image' ? (
-                    <img 
-                      src={attachment.fileUrl} 
-                      alt={attachment.nome} 
-                      className="max-w-full max-h-80 object-contain" 
-                    />
-                  ) : attachment.tipo === 'pdf' ? (
-                    <iframe
-                      src={attachment.fileUrl}
-                      className="w-full h-80"
-                      title={attachment.nome}
-                    />
-                  ) : (
-                    <div className="text-center text-gray-500">Tipo de arquivo não suportado</div>
-                  )}
-                </div>
-              ))}
+          // Verifica se o campo url está presente
+          if (!url) {
+            console.warn("Anexo sem URL:", attachment);
+            return null; // Se não houver URL, ignora o anexo
+          }
+
+          // Determina a extensão do arquivo
+          const fileExtension = url.split('.').pop()?.toLowerCase();
+
+          // Determina o tipo do arquivo com base na extensão
+          const tipo =
+            fileExtension === "pdf"
+              ? "pdf"
+              : ["jpg", "jpeg", "png", "gif"].includes(fileExtension)
+              ? "image"
+              : "unknown";
+
+          return (
+            <div key={index} className="flex justify-center items-center">
+              {tipo === "image" ? (
+                <img
+                  src={url} // Aqui, usamos 'url' que vem da API
+                  alt={nome}
+                  className="max-w-full max-h-80 object-contain"
+                />
+              ) : tipo === "pdf" ? (
+                <iframe
+                  src={url} // Aqui, também usamos 'url'
+                  className="w-full h-80"
+                  title={nome}
+                />
+              ) : (
+                <div className="text-center text-gray-500">Tipo de arquivo não suportado</div>
+              )}
+            </div>
+          );
+              })}
             </Slider>
           </div>
         </div>
@@ -590,12 +653,13 @@ const Projects = () => {
                 />
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium">Anexo</label>
+                <label className="block text-sm font-medium">Anexos</label>
                 <input
                   type="file"
-                  name="Anexo"
+                  name="Anexos"
                   onChange={handleFileChangeActivity}
                   className="w-full p-2 border border-gray-300 rounded mt-1"
+                  multiple // Permite seleção de múltiplos arquivos
                 />
               </div>
               <div className="mt-6 flex justify-end">
