@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Slider from "react-slick"; // Importando o carrossel
-import { PlusIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { PlusIcon, XMarkIcon, ArrowDownTrayIcon, PencilIcon  } from '@heroicons/react/24/solid';
 
 import "slick-carousel/slick/slick.css"; 
 import "slick-carousel/slick/slick-theme.css";
@@ -13,6 +13,10 @@ const Projects = () => {
   const [attachments, setAttachments] = useState([]);
   const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
   const [pdfURL, setPdfURL] = useState('');
+  const [observacoes, setObservacoes] = useState({});
+  const [statusMap, setStatusMap] = useState({});
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [newProject, setNewProject] = useState({
     NomeProjeto: '',
@@ -40,7 +44,7 @@ const Projects = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await axios.get('http://localhost:4001/projetos');
+        const response = await axios.get('http://PC107662:4001/projetos');
         setProjects(response.data);
       } catch (error) {
         console.error('Erro ao carregar os projetos:', error);
@@ -91,7 +95,7 @@ const Projects = () => {
       const dia = String(data.getDate()).padStart(2, '0');
   
       // Monta a URL para consumir a API
-      const url = `http://localhost:4001/uploads/projeto/${ano}/${mes}/${dia}/${NomeProjeto}/${Layout}`;
+      const url = `http://PC107662:4001/uploads/projeto/${ano}/${mes}/${dia}/${NomeProjeto}/${Layout}`;
       console.log('URL gerada:', url);
   
     // Criação do modal popup
@@ -133,7 +137,7 @@ const Projects = () => {
 
   const handleLoadAttachments = async (activityId) => {
     try {
-      const response = await axios.get(`http://localhost:4001/registroDeAtividades/anexos/${activityId}`);
+      const response = await axios.get(`http://PC107662:4001/registroDeAtividades/anexos/${activityId}`);
       const attachmentsData = response.data.anexos;
   
       if (!attachmentsData || attachmentsData.length === 0) {
@@ -158,6 +162,35 @@ const Projects = () => {
     }
   };
 
+  const handleStatusChange = (projectID, newStatus) => {
+    setStatusMap(prevState => ({
+      ...prevState,
+      [projectID]: newStatus,
+    }));
+  };
+
+  const handleObservacaoChange = (projectID, e) => {
+    setObservacoes(prevState => ({
+      ...prevState,
+      [projectID]: e.target.value,
+    }));
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'entregue':
+        return 'bg-green-500';
+      case 'em andamento':
+        return 'bg-yellow-500';
+      case 'cancelado':
+        return 'bg-red-500';
+      case 'não iniciado':
+        return 'bg-gray-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
   const handleAddProject = async (e) => {
     e.preventDefault();
   
@@ -170,14 +203,14 @@ const Projects = () => {
     formData.append('Layout', newProject.Layout);
   
     try {
-      const response = await axios.post('http://localhost:4001/projetos', formData, {
+      const response = await axios.post('http://PC107662:4001/projetos', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
   
       if (response.status === 201) {
-        const projectsResponse = await axios.get('http://localhost:4001/projetos');
+        const projectsResponse = await axios.get('http://PC107662:4001/projetos');
         setProjects(projectsResponse.data);
         setShowProjectModal(false);
         setNewProject({
@@ -199,7 +232,7 @@ const Projects = () => {
 
   const toggleActivities = async (id) => {
     try {
-      const response = await axios.get(`http://localhost:4001/registroDeAtividades/projeto/${id}`);
+      const response = await axios.get(`http://PC107662:4001/registroDeAtividades/projeto/${id}`);
       setSelectedActivity(response.data);
       setShowActivityPopup(true); // Mostrar o popup de atividades
     } catch (error) {
@@ -218,9 +251,10 @@ const Projects = () => {
     });
   
 
+  // Função para abrir/fechar o modal
   const handleActivityModalToggle = (projectId) => {
-    setSelectedProjectId(projectId);
-    setShowActivityModal(!showActivityModal);
+    setSelectedProjectId(projectId);  // Armazena o ID do projeto
+    setShowActivityModal(!showActivityModal);  // Alterna o estado do modal
   };
 
   const handleActivityChange = (e) => {
@@ -232,12 +266,14 @@ const Projects = () => {
   };
 
   const handleFileChangeActivity = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files); // Converte os arquivos em um array
     setActivityForm((prev) => ({
       ...prev,
-      Anexos: [...prev.Anexos, ...files],
+      Anexos: [...prev.Anexos, ...files], // Adiciona novos arquivos ao estado
     }));
   };
+  
+  
 
   const handleAddActivity = async (e) => {
     e.preventDefault();
@@ -252,12 +288,15 @@ const Projects = () => {
       formData.append('Responsavel', activityForm.Responsavel);
       formData.append('ProjetoID', selectedProjectId);
   
-      activityForm.Anexos?.forEach((file) => {
+      // Garantir que Anexos seja um array antes de usar forEach
+      const anexos = Array.isArray(activityForm.Anexos) ? activityForm.Anexos : [];
+      
+      anexos.forEach((file) => {
         formData.append('Anexo', file);
       });
   
       const postResponse = await axios.post(
-        `http://localhost:4001/registroDeAtividades`,
+        `http://PC107662:4001/registroDeAtividades`,
         formData,
         {
           headers: {
@@ -267,7 +306,7 @@ const Projects = () => {
       );
   
       const getResponse = await axios.get(
-        `http://localhost:4001/registroDeAtividades/projeto/${selectedProjectId}`
+        `http://PC107662:4001/registroDeAtividades/projeto/${selectedProjectId}`
       );
       setActivities((prev) => ({ ...prev, [selectedProjectId]: getResponse.data }));
   
@@ -279,7 +318,7 @@ const Projects = () => {
         HoraInicial: '',
         HoraFinal: '',
         Responsavel: '',
-        Anexos: [],
+        Anexos: [], // Limpar os anexos após o envio
       });
     } catch (error) {
       console.error('Erro ao adicionar atividade:', error);
@@ -289,8 +328,29 @@ const Projects = () => {
         alert('Erro ao adicionar atividade. Verifique os dados e tente novamente.');
       }
     }
-  };  
-
+  }; 
+    
+  const handleDownloadActivities = async (id) => {
+    try {
+      // Construir o link do PDF
+      const pdfUrl = `http://PC107662:4001/gerar-pdf/${id}`;
+  
+      // Abrir o PDF em uma nova aba
+      const newWindow = window.open(pdfUrl, '_blank');
+      
+      // Verifique se a nova janela foi aberta corretamente
+      if (newWindow) {
+        newWindow.focus();  // Foca na nova janela (aba)
+      } else {
+        alert('Falha ao abrir uma nova aba. Por favor, permita pop-ups no navegador.');
+      }
+    } catch (error) {
+      console.error('Erro ao acessar o link do PDF:', error);
+      alert('Erro ao tentar abrir o PDF');
+    }
+  };
+  
+  
   const handleShowProjectModal = () => {
     setShowProjectModal(true);
   };
@@ -310,24 +370,35 @@ const Projects = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {projects.map((project) => (
-        <div key={project.ID} className="bg-white shadow-md rounded-lg p-4 w-2/1">
+        <div key={project.ID} className="bg-white shadow-md rounded-lg p-4 w-full mb-4 relative">
           <h3 className="text-lg font-semibold">{project.NomeProjeto}</h3>
           <p><strong>Empresa:</strong> {project.Empresa}</p>
           <p><strong>Prazo:</strong> {formatDate(project.Prazo)}</p>
           <p><strong>Responsável:</strong> {project.Responsavel}</p>
           <p><strong>Estimativa de Horas:</strong> {project.EstimativaHoras}</p>
+
           <div className="mt-4">
             {project.Layout ? (
-              <button
-              onClick={() => handleOpenPDFModal(project)}
-              className="text-blue-600 hover:text-blue-800 border border-blue-500 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 hover:shadow-lg hover:border-blue-700 "
-            >
-              Abrir Layout
-            </button>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleOpenPDFModal(project)}
+                  className="text-blue-600 hover:text-blue-800 border border-blue-500 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 hover:shadow-lg hover:border-blue-700"
+                >
+                  Abrir Layout
+                </button>
+                <button
+                  onClick={() => handleDownloadActivities(project.ID)}
+                  className="text-green-500 hover:text-green-700 border border-green-500 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 hover:shadow-lg hover:border-green-700 flex items-center"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+                  Baixar Relatório
+                </button>
+              </div>
             ) : (
               <span className="text-gray-500">Sem Layout</span>
             )}
           </div>
+
           <div className="mt-4 flex justify-between">
             <button
               onClick={() => toggleActivities(project.ID)}
@@ -344,6 +415,72 @@ const Projects = () => {
               Adicionar Atividade
             </button>
           </div>
+
+          {/* Status Indicator no canto superior direito com tamanho menor */}
+          <div className="absolute top-2 right-2">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${getStatusColor(statusMap[project.ID] || 'não iniciado')}`}>
+              <span className="text-white text-xs">{(statusMap[project.ID] || 'não iniciado')[0].toUpperCase()}</span>
+            </div>
+          </div>
+
+          {/* Alterar Status com ícone de lápis */}
+          <button
+            onClick={() => {
+              setSelectedProject(project);
+              setIsModalOpen(true);
+            }}
+            className="absolute top-2 right-12 text-blue-500 hover:text-blue-700"
+          >
+            <PencilIcon className="h-5 w-5" />
+          </button>
+
+          {/* Status and Observação Modal */}
+          {isModalOpen && selectedProject.ID === project.ID && (
+            <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+              <div className="bg-white p-6 rounded-lg shadow-md w-96">
+                <h4 className="text-xl font-semibold mb-4">Alterar Status do Projeto</h4>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium">Status</label>
+                  <select
+                    value={statusMap[project.ID] || 'não iniciado'}
+                    onChange={(e) => handleStatusChange(project.ID, e.target.value)}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="não iniciado">Não Iniciado</option>
+                    <option value="em andamento">Em Andamento</option>
+                    <option value="entregue">Entregue</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium">Observação</label>
+                  <textarea
+                    value={observacoes[project.ID] || ''}
+                    onChange={(e) => handleObservacaoChange(project.ID, e)}
+                    className="w-full p-2 border rounded"
+                    rows="4"
+                    placeholder="Digite uma observação"
+                  ></textarea>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="mr-4 text-gray-500"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange(project.ID, statusMap[project.ID])}
+                    className="bg-blue-500 text-white p-2 rounded"
+                  >
+                    Salvar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -437,59 +574,206 @@ const Projects = () => {
           </div>
         </div>
       )}
-
-      {showAttachmentsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg relative w-[1440px] h-[800px]">
-            <h3 className="text-lg font-semibold">Anexos</h3>
-            <button
-              onClick={handleCloseAttachmentsModal}
-              className="text-gray-500 hover:text-gray-800 absolute top-4 right-4"
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
-            <Slider {...sliderSettings}>
-              {attachments.map((attachment, index) => {
-                const { nome, url } = attachment;
-
-                if (!url) {
-                  console.warn("Anexo sem URL:", attachment);
-                  return null;
-                }
-
-                const fileExtension = url.split('.').pop()?.toLowerCase();
-                const tipo =
-                  fileExtension === "pdf"
-                    ? "pdf"
-                    : ["jpg", "jpeg", "png", "gif"].includes(fileExtension)
-                    ? "image"
-                    : "unknown";
-
-                return (
-                  <div key={index} className="flex justify-center items-center">
-                    {tipo === "image" ? (
-                      <img
-                        src={url}
-                        alt={nome}
-                        className="max-w-full max-h-800 object-contain"
-                      />
-                    ) : tipo === "pdf" ? (
-                      <iframe
-                        src={url}
-                        className="w-full h-80"
-                        title={nome}
-                      />
-                    ) : (
-                      <div className="text-center text-gray-500">Tipo de arquivo não suportado</div>
-                    )}
-                  </div>
-                );
-              })}
-            </Slider>
-          </div>
+       {showActivityModal && (
+  <div className="modal fixed inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center">
+    <div className="modal-content bg-white p-6 rounded-lg w-96">
+      <h2 className="text-lg font-semibold mb-4">Criar Atividade</h2>
+      <form onSubmit={handleAddActivity}>
+        {/* Campos do formulário */}
+        <div className="mb-4">
+          <label htmlFor="qualAtividade" className="block text-sm font-medium text-gray-700">
+            Qual a atividade?
+          </label>
+          <input
+            id="qualAtividade"
+            type="text"
+            value={activityForm.QualAtividade}
+            onChange={(e) => setActivityForm({ ...activityForm, QualAtividade: e.target.value })}
+            placeholder="Qual a atividade?"
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
         </div>
-      )}
+        <div className="mb-4">
+          <label htmlFor="dataDaAtividade" className="block text-sm font-medium text-gray-700">
+            Data da Atividade
+          </label>
+          <input
+            id="dataDaAtividade"
+            type="date"
+            value={activityForm.DataDaAtividade}
+            onChange={(e) => setActivityForm({ ...activityForm, DataDaAtividade: e.target.value })}
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <div className="mb-4">
+          <label htmlFor="quantasPessoas" className="block text-sm font-medium text-gray-700">
+            Quantas pessoas?
+          </label>
+          <input
+            id="quantasPessoas"
+            type="number"
+            value={activityForm.QuantasPessoas}
+            onChange={(e) => setActivityForm({ ...activityForm, QuantasPessoas: e.target.value })}
+            placeholder="Quantas pessoas?"
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <div className="mb-4">
+          <label htmlFor="horaInicial" className="block text-sm font-medium text-gray-700">
+            Hora Inicial
+          </label>
+          <input
+            id="horaInicial"
+            type="time"
+            value={activityForm.HoraInicial}
+            onChange={(e) => setActivityForm({ ...activityForm, HoraInicial: e.target.value })}
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <div className="mb-4">
+          <label htmlFor="horaFinal" className="block text-sm font-medium text-gray-700">
+            Hora Final
+          </label>
+          <input
+            id="horaFinal"
+            type="time"
+            value={activityForm.HoraFinal}
+            onChange={(e) => setActivityForm({ ...activityForm, HoraFinal: e.target.value })}
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <div className="mb-4">
+          <label htmlFor="responsavel" className="block text-sm font-medium text-gray-700">
+            Responsável
+          </label>
+          <input
+            id="responsavel"
+            type="text"
+            value={activityForm.Responsavel}
+            onChange={(e) => setActivityForm({ ...activityForm, Responsavel: e.target.value })}
+            placeholder="Responsável"
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <div className="mb-4">
+          <label htmlFor="anexos" className="block text-sm font-medium text-gray-700">
+            Anexos
+          </label>
+          <input
+            id="anexos"
+            type="file"
+            multiple
+            onChange={handleFileChangeActivity} // Chama a função para atualizar o estado com os arquivos
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <div className="mb-4 text-right">
+          <button
+            type="submit"
+            className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-green-700 mr-2"
+          >
+            Adicionar
+          </button>
+          <button
+            onClick={() => setShowActivityModal(false)}
+            className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-red-700"
+          >
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+      
+      {showAttachmentsModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg relative w-[1440px] h-[800px]">
+      <h3 className="text-lg font-semibold">Anexos</h3>
+      <button
+        onClick={handleCloseAttachmentsModal}
+        className="text-gray-500 hover:text-gray-800 absolute top-4 right-4"
+      >
+        <XMarkIcon className="h-5 w-5" />
+      </button>
 
+      {/* Renderiza o conteúdo conforme o tipo do arquivo */}
+      {attachments.some(attachment => attachment.url.split('.').pop()?.toLowerCase() === "pdf") ? (
+        // Exibe o PDF fora do slider
+        attachments.map((attachment, index) => {
+          const { nome, url } = attachment;
+
+          if (!url) {
+            console.warn("Anexo sem URL:", attachment);
+            return null;
+          }
+
+          const fileExtension = url.split('.').pop()?.toLowerCase();
+          const tipo = fileExtension === "pdf"
+            ? "pdf"
+            : ["jpg", "jpeg", "png", "gif"].includes(fileExtension)
+            ? "image"
+            : "unknown";
+
+          if (tipo === "pdf") {
+            return (
+              <div key={index} className="flex justify-center items-center mb-4 w-full h-full">
+                <iframe
+                  src={url}
+                  className="w-full h-full"  // Ajuste para preencher o modal
+                  style={{border: 'none'}}
+                  title={nome}
+                />
+              </div>
+            );
+          }
+          return null;
+        })
+      ) : (
+        // Exibe o slider normalmente
+        <Slider {...sliderSettings}>
+          {attachments.map((attachment, index) => {
+            const { nome, url } = attachment;
+
+            if (!url) {
+              console.warn("Anexo sem URL:", attachment);
+              return null;
+            }
+
+            const fileExtension = url.split('.').pop()?.toLowerCase();
+            const tipo =
+              fileExtension === "pdf"
+                ? "pdf"
+                : ["jpg", "jpeg", "png", "gif"].includes(fileExtension)
+                ? "image"
+                : "unknown";
+
+            return (
+              <div key={index} className="flex justify-center items-center mb-4 w-full h-full">
+                {tipo === "image" ? (
+                  <img
+                    src={url}
+                    alt={nome}
+                    className="max-w-full max-h-full object-contain"  // Ajuste de imagem
+                  />
+                ) : tipo === "pdf" ? (
+                  <iframe
+                    src={url}
+                    className="w-full h-full"  // Ajuste para preencher o modal
+                    style={{border: 'none'}}
+                    title={nome}
+                  />
+                ) : (
+                  <div className="text-center text-gray-500">Tipo de arquivo não suportado</div>
+                )}
+              </div>
+            );
+          })}
+        </Slider>
+      )}
+    </div>
+  </div>
+)}
       {showPDFModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-2/3 h-4/5 flex flex-col">
@@ -528,14 +812,14 @@ const Projects = () => {
 
       {showActivityPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-3/4">
-            <h3 className="text-lg font-semibold">Atividades</h3>
+          <div className="bg-white p-6 rounded-lg shadow-lg w-3/4 relative">
             <button
               onClick={() => setShowActivityPopup(false)}
-              className="absolute top-4 right-4 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 focus:outline-none"
+              className="absolute top-4 right-4 bg-transparent text-gray-500 rounded-full p-2 hover:bg-gray-200 focus:outline-none"
             >
-              <XMarkIcon className="h-5 w-5" />
+              <XMarkIcon className="h-5 w-5 text-gray-500 hover:text-gray-700" />
             </button>
+            <h3 className="text-lg font-semibold">Atividades</h3>
             <table className="min-w-full mt-4">
               <thead>
                 <tr>

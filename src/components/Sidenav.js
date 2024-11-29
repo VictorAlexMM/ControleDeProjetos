@@ -1,5 +1,5 @@
 import React from 'react';
-import { HomeIcon, FolderIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, FolderIcon, ClockIcon,BanknotesIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';  // Importando o useNavigate
 
 const Sidenav = ({ isOpen, toggleSidenav }) => {
@@ -15,7 +15,7 @@ const Sidenav = ({ isOpen, toggleSidenav }) => {
     // Remover o item 'loggedUser' do localStorage
     localStorage.removeItem('loggedUser');
 
-    // Redirecionar para a página de login (localhost:3000)
+    // Redirecionar para a página de login (PC107662:3000)
     navigate('/');  // Aqui redireciona para a página inicial, que é a tela de login
   };
 
@@ -30,7 +30,7 @@ const Sidenav = ({ isOpen, toggleSidenav }) => {
       <ul className="flex flex-col flex-grow">
         <li
           className="flex items-center p-3 hover:bg-gray-700 cursor-pointer w-full"
-          onClick={() => handleNavigation('/')}  // Roteia para a página home
+          onClick={() => handleNavigation('/home')}  // Roteia para a página home
         >
           <HomeIcon className="h-5 w-5" />
           {isOpen && <span className="ml-2">Home</span>}
@@ -48,6 +48,13 @@ const Sidenav = ({ isOpen, toggleSidenav }) => {
         >
           <ClockIcon className="h-5 w-5" />
           {isOpen && <span className="ml-2">Relógio de Ponto</span>}
+        </li>
+        <li
+          className="flex items-center p-3 hover:bg-gray-700 cursor-pointer w-full"
+          onClick={() => handleNavigation('/projeto/saldodehoras')}  // Roteia para a página projetos
+        >
+          <BanknotesIcon className="h-5 w-5" />
+          {isOpen && <span className="ml-2">Saldo de Horas</span>}
         </li>
       </ul>
       <div className="p-4">
