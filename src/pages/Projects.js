@@ -21,6 +21,7 @@ const Projects = () => {
     Responsavel: '',
     EstimativaHoras: '',
     Layout: null,
+    DataCriacao:'',
   });
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
@@ -65,42 +66,52 @@ const Projects = () => {
   };
 
   const handleOpenPDFModal = async (project) => {
-    const { ano, mes, dia, NomeProjeto, filename } = project;
+    const { Prazo, NomeProjeto, Layout } = project; // Use Prazo
   
-    // Verifica se todas as propriedades estão definidas
-    if (!ano || !mes || !dia || !NomeProjeto || !filename) {
+    // Verifica se Prazo, NomeProjeto e Layout estão definidos
+    if (!Prazo || !NomeProjeto || !Layout) {
       console.error('Propriedades do projeto estão indefinidas:', project);
       alert('Erro: Dados do projeto estão incompletos.');
       return;
     }
   
-    const url = `http://localhost:4001/uploads/projeto/${ano}/${mes}/${dia}/${NomeProjeto}/${filename}`;
-  
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Erro ao buscar o arquivo: ' + response.statusText);
+      // Extrai ano, mês e dia da Prazo
+      const data = new Date(Prazo); // Use Prazo
+  
+      // Valida se Prazo é uma data válida
+      if (isNaN(data)) {
+        console.error('Data inválida:', Prazo); // Use Prazo
+        alert('Erro: Data de criação é inválida.');
+        return;
       }
   
-      const blob = await response.blob();
-      const fileURL = URL.createObjectURL(blob);
-      const fileExtension = filename.split('.').pop().toLowerCase();
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
   
-      if (fileExtension === 'pdf') {
-        window.open(fileURL, '_blank');
-      } else {
-        const a = document.createElement('a');
-        a.href = fileURL;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
+      // Monta a URL para consumir a API
+      const url = `http://localhost:4001/uploads/projeto/${ano}/${mes}/${dia}/${NomeProjeto}/${Layout}`;
+      console.log('URL gerada:', url);
+  
+    // Criação do modal popup
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50'; // Fundo escuro que ocupa toda a tela
+    modal.innerHTML = `
+      <div class="bg-white p-6 rounded-lg shadow-xl relative w-[1440px] h-[800px]">
+        <button onclick="document.body.removeChild(this.parentElement.parentElement)" class="absolute top-2 right-2 text-xl text-gray-600 hover:text-gray-800">
+          X
+        </button>
+        <iframe src="${url}" class="w-full h-full" title="PDF Viewer"></iframe>
+      </div>
+    `;
+  
+      document.body.appendChild(modal); // Adiciona o modal ao body
     } catch (error) {
       console.error('Erro ao abrir o arquivo:', error);
       alert('Não foi possível abrir o arquivo.');
     }
-  };  
+  };
   
   const handleClosePDFModal = () => {
     setShowPDFModal(false);
@@ -309,7 +320,7 @@ const Projects = () => {
             {project.Layout ? (
               <button
               onClick={() => handleOpenPDFModal(project)}
-              className="text-blue-600 hover:text-blue-800 border border-blue-500 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 hover:shadow-lg hover:border-blue-700"
+              className="text-blue-600 hover:text-blue-800 border border-blue-500 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 hover:shadow-lg hover:border-blue-700 "
             >
               Abrir Layout
             </button>
