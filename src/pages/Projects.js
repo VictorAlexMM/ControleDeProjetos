@@ -64,10 +64,43 @@ const Projects = () => {
     }));
   };
 
-  const handleOpenPDFModal = (url) => {
-    setPdfURL(url);
-    setShowPDFModal(true);
-  };
+  const handleOpenPDFModal = async (project) => {
+    const { ano, mes, dia, NomeProjeto, filename } = project;
+  
+    // Verifica se todas as propriedades estão definidas
+    if (!ano || !mes || !dia || !NomeProjeto || !filename) {
+      console.error('Propriedades do projeto estão indefinidas:', project);
+      alert('Erro: Dados do projeto estão incompletos.');
+      return;
+    }
+  
+    const url = `http://localhost:4001/uploads/projeto/${ano}/${mes}/${dia}/${NomeProjeto}/${filename}`;
+  
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Erro ao buscar o arquivo: ' + response.statusText);
+      }
+  
+      const blob = await response.blob();
+      const fileURL = URL.createObjectURL(blob);
+      const fileExtension = filename.split('.').pop().toLowerCase();
+  
+      if (fileExtension === 'pdf') {
+        window.open(fileURL, '_blank');
+      } else {
+        const a = document.createElement('a');
+        a.href = fileURL;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Erro ao abrir o arquivo:', error);
+      alert('Não foi possível abrir o arquivo.');
+    }
+  };  
   
   const handleClosePDFModal = () => {
     setShowPDFModal(false);
@@ -122,7 +155,7 @@ const Projects = () => {
     formData.append('Empresa', newProject.Empresa);
     formData.append('Prazo', newProject.Prazo);
     formData.append('Responsavel', newProject.Responsavel);
-    formData.append('EstimativaHoras', newProject.EstimativaHora);
+    formData.append('EstimativaHoras', newProject.EstimativaHoras);
     formData.append('Layout', newProject.Layout);
   
     try {
@@ -264,46 +297,45 @@ const Projects = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
-        {projects.map((project) => (
-          <div key={project.ID} className="bg-white shadow-md rounded-lg p-4 w-1/2">
-            <h3 className="text-lg font-semibold">{project.NomeProjeto}</h3>
-            <p><strong>Empresa:</strong> {project.Empresa}</p>
-            <p><strong>Prazo:</strong> {formatDate(project.Prazo)}</p>
-            <p><strong>Responsável:</strong> {project.Responsavel}</p>
-            <p><strong>Estimativa de Horas:</strong> {project.EstimativaHoras}</p>
-            <div className="mt-4">
-              {project.Layout ? (
-                <button
-                  onClick={() => handleOpenPDFModal(`http://localhost:4001/uploads/projeto/${project.ano}/${project.mes}/${project.dia}/${project.NomeProjeto}`)}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  Abrir Layout
-                </button>
-              ) : (
-                <span className="text-gray-500">Sem Layout</span>
-              )}
-            </div>
-            <div className="mt-4 flex justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {projects.map((project) => (
+        <div key={project.ID} className="bg-white shadow-md rounded-lg p-4 w-2/1">
+          <h3 className="text-lg font-semibold">{project.NomeProjeto}</h3>
+          <p><strong>Empresa:</strong> {project.Empresa}</p>
+          <p><strong>Prazo:</strong> {formatDate(project.Prazo)}</p>
+          <p><strong>Responsável:</strong> {project.Responsavel}</p>
+          <p><strong>Estimativa de Horas:</strong> {project.EstimativaHoras}</p>
+          <div className="mt-4">
+            {project.Layout ? (
               <button
-                onClick={() => toggleActivities(project.ID)}
-                className="text-blue-500 hover:text-blue-700 flex items-center"
-              >
-                <PlusIcon className="h-5 w-5 mr-1" />
-                Mostrar Atividades
-              </button>
-              <button
-                onClick={() => handleActivityModalToggle(project.ID)}
-                className="text-blue-500 hover:text-blue-700 flex items-center"
-              >
-                <PlusIcon className="h-5 w-5 mr-1" />
-                Adicionar Atividade
-              </button>
-            </div>
+              onClick={() => handleOpenPDFModal(project)}
+              className="text-blue-600 hover:text-blue-800 border border-blue-500 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 hover:shadow-lg hover:border-blue-700"
+            >
+              Abrir Layout
+            </button>
+            ) : (
+              <span className="text-gray-500">Sem Layout</span>
+            )}
           </div>
-        ))}
-      </div>
-
+          <div className="mt-4 flex justify-between">
+            <button
+              onClick={() => toggleActivities(project.ID)}
+              className="text-blue-500 hover:text-blue-700 border border-blue-500 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 hover:shadow-lg hover:border-blue-700 flex items-center"
+            >
+              <PlusIcon className="h-4 w-4 mr-1" />
+              Mostrar Atividades
+            </button>
+            <button
+              onClick={() => handleActivityModalToggle(project.ID)}
+              className="text-blue-500 hover:text-blue-700 border border-blue-500 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 hover:shadow-lg hover:border-blue-700 flex items-center"
+            >
+              <PlusIcon className="h-4 w-4 mr-1" />
+              Adicionar Atividade
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
       {/* Modal de Novo Projeto */}
       {showProjectModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -369,6 +401,7 @@ const Projects = () => {
                 <label className="block text-sm font-medium">Layout</label>
                 <input
                   type="file"
+                  accept=".pdf,.dwg"
                   name="Layout"
                   onChange={handleFileChange}
                   className="w-full p-2 border border-gray-300 rounded mt-1"
