@@ -8,6 +8,7 @@ import "slick-carousel/slick/slick-theme.css";
 
 const Projects = () => {
   const [projects, setProjects] = useState([]);
+  const [query, setQuery] = useState("");
   const [activities, setActivities] = useState({});
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -46,8 +47,22 @@ const Projects = () => {
       try {
         const response = await axios.get('http://PC107662:4001/projetos');
         setProjects(response.data);
+
+        // Busca observações para todos os projetos
+        const observacaoPromises = response.data.map(async (project) => {
+          const observacaoResponse = await axios.get(`http://PC107662:4001/api/projetos/${project.ID}/observacao`);
+          return { id: project.ID, observacao: observacaoResponse.data.observacao };
+        });
+
+        const observacoesData = await Promise.all(observacaoPromises);
+        const observacoesMap = {};
+        observacoesData.forEach(({ id, observacao }) => {
+          observacoesMap[id] = observacao;
+        });
+
+        setObservacoes(observacoesMap);
       } catch (error) {
-        console.error('Erro ao carregar os projetos:', error);
+        console.error('Erro ao carregar os projetos e observações:', error);
       }
     };
     fetchProjects();
@@ -162,19 +177,58 @@ const Projects = () => {
     }
   };
 
-  const handleStatusChange = (projectID, newStatus) => {
-    setStatusMap(prevState => ({
+  const handleStatusChange = async (projectID, newStatus) => {
+    // Atualiza o estado local
+    setStatusMap((prevState) => ({
       ...prevState,
       [projectID]: newStatus,
     }));
+  
+    // Envia a alteração para a API
+    try {
+      await fetch(`http://localhost:4001/api/projetos/${projectID}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          observacao: observacoes[projectID] || "", // Envia a observação existente ou string vazia
+        }),
+      });
+      console.log("Status atualizado com sucesso");
+    } catch (error) {
+      console.error("Erro ao atualizar status:", error);
+    }
   };
-
-  const handleObservacaoChange = (projectID, e) => {
-    setObservacoes(prevState => ({
+  
+  const handleObservacaoChange = async (projectID, e) => {
+    const newObservacao = e.target.value;
+  
+    // Atualiza o estado local
+    setObservacoes((prevState) => ({
       ...prevState,
-      [projectID]: e.target.value,
+      [projectID]: newObservacao,
     }));
+  
+    // Envia a alteração para a API
+    try {
+      await fetch(`http://localhost:4001/api/projetos/${projectID}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: statusMap[projectID] || "não iniciado", // Envia o status atual
+          observacao: newObservacao, // Envia a nova observação
+        }),
+      });
+      console.log("Observação atualizada com sucesso");
+    } catch (error) {
+      console.error("Erro ao atualizar observação:", error);
+    }
   };
+  
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -237,18 +291,40 @@ const Projects = () => {
       setShowActivityPopup(true); // Mostrar o popup de atividades
     } catch (error) {
       console.error('Erro ao buscar atividades:', error);
+      alert('Sem atividade registrada'); // Exibir alerta em caso de erro
     }
   };
-
-  const formatDate = (date) => 
-    new Date(date).toLocaleDateString('pt-BR');
   
-  const formatHour = (date) => 
-    new Date(date).toLocaleTimeString('pt-BR', {
+
+  const formatDate = (date) => {
+    // Verifica se a data é nula ou inválida
+    if (!date || isNaN(new Date(date).getTime())) {
+      return 'Data inválida'; // Retorna mensagem padrão se a data for inválida
+    }
+    // Retorna a data formatada
+    return new Date(date).toLocaleDateString('pt-BR');
+  };
+  
+  const formatHour = (date) => {
+    // Verifica se a data é nula
+    if (!date) {
+      return 'Sem Horas'; // Retorna 'null' se a hora for nula ou indefinida
+    }
+  
+    // Converte para objeto Date e verifica se é válido
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) {
+      return 'Hora inválida'; // Retorna mensagem padrão se a hora for inválida
+    }
+  
+    // Retorna a hora formatada
+    return parsedDate.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false // Formato 24 horas
+      hour12: false, // Formato 24 horas
     });
+  };
+  
   
 
   // Função para abrir/fechar o modal
@@ -272,29 +348,39 @@ const Projects = () => {
       Anexos: [...prev.Anexos, ...files], // Adiciona novos arquivos ao estado
     }));
   };
-  
-  
 
   const handleAddActivity = async (e) => {
     e.preventDefault();
   
     try {
       const formData = new FormData();
+  
+      // Campos obrigatórios
       formData.append('QualAtividade', activityForm.QualAtividade);
       formData.append('DataDaAtividade', activityForm.DataDaAtividade);
-      formData.append('QuantasPessoas', parseInt(activityForm.QuantasPessoas, 10));
-      formData.append('HoraInicial', activityForm.HoraInicial);
-      formData.append('HoraFinal', activityForm.HoraFinal);
       formData.append('Responsavel', activityForm.Responsavel);
       formData.append('ProjetoID', selectedProjectId);
   
-      // Garantir que Anexos seja um array antes de usar forEach
+      // Adicionar QuantasPessoas somente se preenchido
+      if (activityForm.QuantasPessoas) {
+        formData.append('QuantasPessoas', parseInt(activityForm.QuantasPessoas, 10));
+      }
+  
+      // Adicionar HoraInicial e HoraFinal somente se preenchidos
+      if (activityForm.HoraInicial?.trim()) {
+        formData.append('HoraInicial', activityForm.HoraInicial);
+      }
+      if (activityForm.HoraFinal?.trim()) {
+        formData.append('HoraFinal', activityForm.HoraFinal);
+      }
+  
+      // Adicionar Anexos somente se existirem
       const anexos = Array.isArray(activityForm.Anexos) ? activityForm.Anexos : [];
-      
       anexos.forEach((file) => {
         formData.append('Anexo', file);
       });
   
+      // Requisição POST
       const postResponse = await axios.post(
         `http://PC107662:4001/registroDeAtividades`,
         formData,
@@ -305,11 +391,11 @@ const Projects = () => {
         }
       );
   
-      const getResponse = await axios.get(
-        `http://PC107662:4001/registroDeAtividades/projeto/${selectedProjectId}`
-      );
+      // Atualiza atividades após sucesso
+      const getResponse = await axios.get(`http://PC107662:4001/registroDeAtividades/projeto/${selectedProjectId}` );
       setActivities((prev) => ({ ...prev, [selectedProjectId]: getResponse.data }));
   
+      // Fecha modal e reseta formulário
       setShowActivityModal(false);
       setActivityForm({
         QualAtividade: '',
@@ -323,13 +409,21 @@ const Projects = () => {
     } catch (error) {
       console.error('Erro ao adicionar atividade:', error);
       if (error.response) {
-        alert(`Erro ao adicionar atividade: ${error.response.data.error || 'Verifique os dados e tente novamente.'}`);
+        alert(
+          `Erro ao adicionar atividade: ${
+            error.response.data.error || 'Verifique os dados e tente novamente.'
+          }`
+        );
       } else {
         alert('Erro ao adicionar atividade. Verifique os dados e tente novamente.');
       }
     }
-  }; 
-    
+  };
+  
+  const handleInputChange = (event) => {
+    setQuery(event.target.value);
+  };
+  
   const handleDownloadActivities = async (id) => {
     try {
       // Construir o link do PDF
@@ -376,6 +470,7 @@ const Projects = () => {
           <p><strong>Prazo:</strong> {formatDate(project.Prazo)}</p>
           <p><strong>Responsável:</strong> {project.Responsavel}</p>
           <p><strong>Estimativa de Horas:</strong> {project.EstimativaHoras}</p>
+          <p><strong>Observação:</strong> {observacoes[project.ID] || 'Sem observações.'}</p>
 
           <div className="mt-4">
             {project.Layout ? (
@@ -465,14 +560,19 @@ const Projects = () => {
                 </div>
 
                 <div className="flex justify-end">
-                  <button
-                    onClick={() => setIsModalOpen(false)}
+                <button
+                    onClick={() => {
+                      setIsModalOpen(false); // Fecha o modal ao cancelar
+                    }}
                     className="mr-4 text-gray-500"
                   >
                     Cancelar
                   </button>
                   <button
-                    onClick={() => handleStatusChange(project.ID, statusMap[project.ID])}
+                    onClick={() => {
+                      handleStatusChange(project.ID, statusMap[project.ID]); // Salva as alterações
+                      setIsModalOpen(false); // Fecha o modal após salvar
+                    }}
                     className="bg-blue-500 text-white p-2 rounded"
                   >
                     Salvar
@@ -774,82 +874,82 @@ const Projects = () => {
     </div>
   </div>
 )}
-      {showPDFModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-2/3 h-4/5 flex flex-col">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Visualizar Layout</h3>
-              <button
-                onClick={handleClosePDFModal}
-                className="text-gray-500 hover:text-gray-800"
-              >
-                Fechar
-              </button>
-            </div>
-            <iframe
-              src={pdfURL}
-              title="PDF Viewer"
-              className="flex-grow w-full border rounded"
-              style={{ height: 'calc(100% - 50px)' }}
-            />
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => window.open(pdfURL, '_blank')}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg mr-2"
-              >
-                Imprimir
-              </button>
-              <button
-                onClick={handleClosePDFModal}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+{showPDFModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl h-full max-h-[90vh] flex flex-col">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Visualizar Layout</h3>
+        <button
+          onClick={handleClosePDFModal}
+          className="text-gray-500 hover:text-gray-800"
+        >
+          Fechar
+        </button>
+      </div>
+      <iframe
+        src={pdfURL}
+        title="PDF Viewer"
+        className="w-full h-full border rounded"
+        style={{ objectFit: 'contain', minHeight: '400px', maxHeight: '80vh' }} // Ajuste a altura e contenção
+      />
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={() => window.open(pdfURL, '_blank')}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg mr-2"
+        >
+          Imprimir
+        </button>
+        <button
+          onClick={handleClosePDFModal}
+          className="bg-gray-500 text-white px-4 py-2 rounded-lg"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
-      {showActivityPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-3/4 relative">
-            <button
-              onClick={() => setShowActivityPopup(false)}
-              className="absolute top-4 right-4 bg-transparent text-gray-500 rounded-full p-2 hover:bg-gray-200 focus:outline-none"
-            >
-              <XMarkIcon className="h-5 w-5 text-gray-500 hover:text-gray-700" />
-            </button>
-            <h3 className="text-lg font-semibold">Atividades</h3>
-            <table className="min-w-full mt-4">
-              <thead>
-                <tr>
-                  <th className="border px-4 py-2">Atividade</th>
-                  <th className="border px-4 py-2">Data</th>
-                  <th className="border px-4 py-2">Responsável</th>
-                  <th className="border px-4 py-2">Quantas Pessoas</th>
-                  <th className="border px-4 py-2">Hora Inicial</th>
-                  <th className="border px-4 py-2">Hora Final</th>
-                  <th className="border px-4 py-2">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedActivity.map((activity) => (
-                  <tr key={activity.ID}>
-                    <td className="border px-4 py-2">{activity.QualAtividade}</td>
-                    <td className="border px-4 py-2">{formatDate(activity.DataDaAtividade)}</td>
-                    <td className="border px-4 py-2">{activity.Responsavel}</td>
-                    <td className="border px-4 py-2">{activity.QuantasPessoas}</td>
-                    <td className="border px-4 py-2">{formatHour(activity.HoraInicial)}</td>
-                    <td className="border px-4 py-2">{formatHour(activity.HoraFinal)}</td>
-                    <td className="border px-4 py-2">
-                      <button
-                        onClick={() => handleLoadAttachments(activity.ID)}
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        Mostrar Anexos
-                      </button>
-                    </td>
-                  </tr>
+{showActivityPopup && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-[1440px] h-[900px] relative">
+      <button
+        onClick={() => setShowActivityPopup(false)}
+        className="absolute top-4 right-4 bg-transparent text-gray-500 rounded-full p-2 hover:bg-gray-200 focus:outline-none"
+      >
+        <XMarkIcon className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+      </button>
+      <h3 className="text-lg font-semibold">Atividades</h3>
+      <table className="min-w-full mt-4">
+        <thead>
+          <tr>
+            <th className="border px-4 py-2">Atividade</th>
+            <th className="border px-4 py-2">Data</th>
+            <th className="border px-4 py-2">Responsável</th>
+            <th className="border px-4 py-2">Quantas Pessoas</th>
+            <th className="border px-4 py-2">Hora Inicial</th>
+            <th className="border px-4 py-2">Hora Final</th>
+            <th className="border px-4 py-2">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {selectedActivity.map((activity) => (
+            <tr key={activity.ID}>
+              <td className="border px-4 py-2">{activity.QualAtividade}</td>
+              <td className="border px-4 py-2">{formatDate(activity.DataDaAtividade)}</td>
+              <td className="border px-4 py-2">{activity.Responsavel}</td>
+              <td className="border px-4 py-2">{activity.QuantasPessoas}</td>
+              <td className="border px-4 py-2">{formatHour(activity.HoraInicial)}</td>
+              <td className="border px-4 py-2">{formatHour(activity.HoraFinal)}</td>
+              <td className="border px-4 py-2">
+                <button
+                  onClick={() => handleLoadAttachments(activity.ID)}
+                  className="text-blue-500 hover:text-blue-700"
+                >
+                  Mostrar Anexos
+                </button>
+              </td>
+            </tr>
                 ))}
               </tbody>
             </table>
