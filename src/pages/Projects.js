@@ -11,6 +11,11 @@ const Projects = () => {
   const [query, setQuery] = useState("");
   const [activities, setActivities] = useState({});
   const [showPDFModal, setShowPDFModal] = useState(false);
+  const [atividadeResponse, setAtividadeResponse] = useState(null);
+  const [lastFotosTimestamp, setLastFotosTimestamp] = useState(null); // Para detectar a mudança de dados
+  const [isFetchingOtherApis, setIsFetchingOtherApis] = useState(false); // Controle de requisições em segundo plano
+  const [fotos, setFotos] = useState([]);
+  const [pontos, setPontos] = useState([]);
   const [attachments, setAttachments] = useState([]);
   const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
   const [pdfURL, setPdfURL] = useState('');
@@ -41,6 +46,60 @@ const Projects = () => {
   });
   const [showActivityPopup, setShowActivityPopup] = useState(false); // Estado para mostrar o popup de atividades
   const [selectedActivity, setSelectedActivity] = useState([]); // Estado para a atividade selecionada
+
+
+  // Função para buscar as outras APIs
+  const fetchOtherApis = async () => {
+    try {
+      setIsFetchingOtherApis(true); // Inicia a busca em segundo plano
+
+      // Buscar ponto
+      const pontosResponse = await axios.get("http://localhost:4001/api/buscar-ponto");
+      setPontos(pontosResponse.data);
+
+      // Registrar ponto atividade
+      const registrarResponse = await axios.post("http://localhost:4001/api/registrar-ponto-atividade", {
+        atividade: "Nova Atividade", // Ajuste conforme necessário
+      });
+      setAtividadeResponse(registrarResponse.data);
+
+      // Buscar fotos
+      const fotosResponse = await axios.get("http://localhost:4001/api/ponto_fotos");
+      setFotos(fotosResponse.data);
+      
+    } catch (error) {
+      console.error("Erro ao atualizar APIs:", error);
+    } finally {
+      setIsFetchingOtherApis(false); // Libera o estado após a execução
+    };
+  };
+
+    // Função que roda o processo de monitoramento e chama fetchOtherApis quando há um novo dado
+    useEffect(() => {
+      const fetchPontoFotos = async () => {
+        try {
+          const response = await axios.get("http://localhost:4001/api/ponto_fotos");
+  
+          // Verifica se há novos dados comparando com o último timestamp
+          if (response.data.timestamp !== lastFotosTimestamp) {
+            setFotos(response.data);
+            setLastFotosTimestamp(response.data.timestamp); // Atualiza o timestamp
+            console.log("Novo dado detectado em ponto_fotos, atualizando outras APIs...");
+            
+            // Chama as outras APIs em segundo plano
+            fetchOtherApis(); // Atualiza as outras APIs
+          }
+        } catch (error) {
+          console.error("Erro ao buscar Ponto Fotos:", error);
+        }
+      };
+  
+      fetchPontoFotos(); // Chamada inicial
+      const intervalId = setInterval(fetchPontoFotos, 5000); // Verifica a cada 5 segundos
+  
+      return () => clearInterval(intervalId); // Limpa o intervalo ao desmontar
+    }, [lastFotosTimestamp]);
+
 
   useEffect(() => {
     const fetchProjects = async () => {
