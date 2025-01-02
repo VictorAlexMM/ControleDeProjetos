@@ -11,11 +11,6 @@ const Projects = () => {
   const [query, setQuery] = useState("");
   const [activities, setActivities] = useState({});
   const [showPDFModal, setShowPDFModal] = useState(false);
-  const [atividadeResponse, setAtividadeResponse] = useState(null);
-  const [lastFotosTimestamp, setLastFotosTimestamp] = useState(null); // Para detectar a mudança de dados
-  const [isFetchingOtherApis, setIsFetchingOtherApis] = useState(false); // Controle de requisições em segundo plano
-  const [fotos, setFotos] = useState([]);
-  const [pontos, setPontos] = useState([]);
   const [attachments, setAttachments] = useState([]);
   const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
   const [pdfURL, setPdfURL] = useState('');
@@ -47,69 +42,15 @@ const Projects = () => {
   const [showActivityPopup, setShowActivityPopup] = useState(false); // Estado para mostrar o popup de atividades
   const [selectedActivity, setSelectedActivity] = useState([]); // Estado para a atividade selecionada
 
-
-  // Função para buscar as outras APIs
-  const fetchOtherApis = async () => {
-    try {
-      setIsFetchingOtherApis(true); // Inicia a busca em segundo plano
-
-      // Buscar ponto
-      const pontosResponse = await axios.get("http://localhost:4001/api/buscar-ponto");
-      setPontos(pontosResponse.data);
-
-      // Registrar ponto atividade
-      const registrarResponse = await axios.post("http://localhost:4001/api/registrar-ponto-atividade", {
-        atividade: "Nova Atividade", // Ajuste conforme necessário
-      });
-      setAtividadeResponse(registrarResponse.data);
-
-      // Buscar fotos
-      const fotosResponse = await axios.get("http://localhost:4001/api/ponto_fotos");
-      setFotos(fotosResponse.data);
-      
-    } catch (error) {
-      console.error("Erro ao atualizar APIs:", error);
-    } finally {
-      setIsFetchingOtherApis(false); // Libera o estado após a execução
-    };
-  };
-
-    // Função que roda o processo de monitoramento e chama fetchOtherApis quando há um novo dado
-    useEffect(() => {
-      const fetchPontoFotos = async () => {
-        try {
-          const response = await axios.get("http://localhost:4001/api/ponto_fotos");
-  
-          // Verifica se há novos dados comparando com o último timestamp
-          if (response.data.timestamp !== lastFotosTimestamp) {
-            setFotos(response.data);
-            setLastFotosTimestamp(response.data.timestamp); // Atualiza o timestamp
-            console.log("Novo dado detectado em ponto_fotos, atualizando outras APIs...");
-            
-            // Chama as outras APIs em segundo plano
-            fetchOtherApis(); // Atualiza as outras APIs
-          }
-        } catch (error) {
-          console.error("Erro ao buscar Ponto Fotos:", error);
-        }
-      };
-  
-      fetchPontoFotos(); // Chamada inicial
-      const intervalId = setInterval(fetchPontoFotos, 5000); // Verifica a cada 5 segundos
-  
-      return () => clearInterval(intervalId); // Limpa o intervalo ao desmontar
-    }, [lastFotosTimestamp]);
-
-
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await axios.get('http://PC107662:4001/projetos');
+        const response = await axios.get('http://PC107662:4002/projetos');
         setProjects(response.data);
 
         // Busca observações para todos os projetos
         const observacaoPromises = response.data.map(async (project) => {
-          const observacaoResponse = await axios.get(`http://PC107662:4001/api/projetos/${project.ID}/observacao`);
+          const observacaoResponse = await axios.get(`http://PC107662:4002/api/projetos/${project.ID}/observacao`);
           return { id: project.ID, observacao: observacaoResponse.data.observacao };
         });
 
@@ -143,6 +84,26 @@ const Projects = () => {
     }));
   };
 
+  const [totalHoras, setTotalHoras] = useState('0h:0m:0s'); // Inicializa no formato esperado
+  const [activityId, setActivityId] = useState(null); // ID da atividade selecionada
+  
+  useEffect(() => {
+    if (showActivityPopup && activityId) {
+      // Fazendo a requisição para buscar o total de horas com base no ID
+      axios
+        .get(`https://pc107662:4003/api/total-horas/${activityId}`)
+        .then((response) => {
+          setTotalHoras(response.data.totalHoras); // Atualiza com os dados retornados
+        })
+        .catch((error) => {
+          console.error('Erro ao buscar total de horas:', error);
+          setTotalHoras('0h:0m:0s'); // Define um valor padrão em caso de erro
+        });
+    }
+  }, [showActivityPopup, activityId]); // Dependente do showActivityPopup e activityId
+  
+  
+
   const handleOpenPDFModal = async (project) => {
     const { Prazo, NomeProjeto, Layout } = project; // Use Prazo
   
@@ -169,7 +130,7 @@ const Projects = () => {
       const dia = String(data.getDate()).padStart(2, '0');
   
       // Monta a URL para consumir a API
-      const url = `http://PC107662:4001/uploads/projeto/${ano}/${mes}/${dia}/${NomeProjeto}/${Layout}`;
+      const url = `http://PC107662:4002/uploads/projeto/${ano}/${mes}/${dia}/${NomeProjeto}/${Layout}`;
       console.log('URL gerada:', url);
   
     // Criação do modal popup
@@ -211,7 +172,7 @@ const Projects = () => {
 
   const handleLoadAttachments = async (activityId) => {
     try {
-      const response = await axios.get(`http://PC107662:4001/registroDeAtividades/anexos/${activityId}`);
+      const response = await axios.get(`http://PC107662:4002/registroDeAtividades/anexos/${activityId}`);
       const attachmentsData = response.data.anexos;
   
       if (!attachmentsData || attachmentsData.length === 0) {
@@ -245,7 +206,7 @@ const Projects = () => {
   
     // Envia a alteração para a API
     try {
-      await fetch(`http://localhost:4001/api/projetos/${projectID}`, {
+      await fetch(`http://pc107662:4002/api/projetos/${projectID}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -272,7 +233,7 @@ const Projects = () => {
   
     // Envia a alteração para a API
     try {
-      await fetch(`http://localhost:4001/api/projetos/${projectID}`, {
+      await fetch(`http://pc107662:4002/api/projetos/${projectID}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -316,14 +277,14 @@ const Projects = () => {
     formData.append('Layout', newProject.Layout);
   
     try {
-      const response = await axios.post('http://PC107662:4001/projetos', formData, {
+      const response = await axios.post('http://PC107662:4002/projetos', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
   
       if (response.status === 201) {
-        const projectsResponse = await axios.get('http://PC107662:4001/projetos');
+        const projectsResponse = await axios.get('http://PC107662:4002/projetos');
         setProjects(projectsResponse.data);
         setShowProjectModal(false);
         setNewProject({
@@ -345,8 +306,71 @@ const Projects = () => {
 
   const toggleActivities = async (id) => {
     try {
-      const response = await axios.get(`http://PC107662:4001/registroDeAtividades/projeto/${id}`);
-      setSelectedActivity(response.data);
+      const response = await axios.get(`http://PC107662:4002/registroDeAtividades/projeto/${id}`);
+      const activities = response.data;
+  
+      if (!activities || activities.length === 0) {
+        alert('Sem atividade registrada');
+        return;
+      }
+  
+      console.log('Dados recebidos:', activities); // Debug
+  
+      let totalMinutes = 0;
+  
+      // Agrupar atividades pela data
+      const activitiesGroupedByDate = activities.reduce((acc, activity) => {
+        const date = activity.DataDaAtividade;
+        if (!acc[date]) {
+          acc[date] = [];
+        }
+        acc[date].push(activity);
+        return acc;
+      }, {});
+  
+      // Para cada data, calcular o total de horas
+      for (const date in activitiesGroupedByDate) {
+        let dateMinutes = 0;
+  
+        activitiesGroupedByDate[date].forEach((activity) => {
+          // Extrair HoraInicial e HoraFinal no formato HH:mm e ajustar para Manaus
+          const startTime = formatHour(activity.HoraInicial); // Ex: "10:00"
+          const endTime = formatHour(activity.HoraFinal); // Ex: "15:00"
+  
+          // Converter para minutos (com base no horário ajustado)
+          const startTimeInMinutes = convertToMinutes(startTime);
+          const endTimeInMinutes = convertToMinutes(endTime);
+  
+          // Ajustar para excluir o intervalo de 12h às 13h
+          let adjustedMinutes = endTimeInMinutes - startTimeInMinutes;
+  
+          // Verificar se a atividade atravessa o intervalo de 12h às 13h
+          if (startTimeInMinutes < convertToMinutes('13:00') && endTimeInMinutes > convertToMinutes('12:00')) {
+            // A atividade atravessa o intervalo de 12h às 13h
+            const overlapStart = Math.max(startTimeInMinutes, convertToMinutes('12:00')); // Início do intervalo de overlap
+            const overlapEnd = Math.min(endTimeInMinutes, convertToMinutes('13:00')); // Fim do intervalo de overlap
+  
+            if (overlapStart < overlapEnd) {
+              // A atividade atravessa o intervalo de 12h às 13h
+              adjustedMinutes -= (overlapEnd - overlapStart);
+              console.log(`Descontando minutos: ${(overlapEnd - overlapStart)} minutos`);
+            }
+          }
+  
+          // Acumular o total de minutos para cada atividade
+          dateMinutes += adjustedMinutes > 0 ? adjustedMinutes : 0;
+        });
+  
+        console.log(`Total de minutos para ${date}: ${dateMinutes}`);
+        totalMinutes += dateMinutes;
+      }
+  
+      // Convertendo total de minutos para horas e minutos
+      const totalHoras = `${Math.floor(totalMinutes / 60)}h:${Math.round(totalMinutes % 60)}m`;
+  
+      // Atualizando o estado com o total de horas
+      setSelectedActivity(activities);
+      setTotalHoras(totalHoras);
       setShowActivityPopup(true); // Mostrar o popup de atividades
     } catch (error) {
       console.error('Erro ao buscar atividades:', error);
@@ -354,38 +378,61 @@ const Projects = () => {
     }
   };
   
-
-  const formatDate = (date) => {
-    // Verifica se a data é nula ou inválida
-    if (!date || isNaN(new Date(date).getTime())) {
-      return 'Data inválida'; // Retorna mensagem padrão se a data for inválida
-    }
-    // Retorna a data formatada
-    return new Date(date).toLocaleDateString('pt-BR');
+  // Função para extrair hora no formato HH:mm a partir de uma data completa
+  const extractTime = (datetime) => {
+    const date = new Date(datetime);
+    return date.toTimeString().slice(0, 5); // Retorna a parte da hora "HH:mm"
   };
   
-  const formatHour = (date) => {
-    // Verifica se a data é nula
-    if (!date) {
-      return 'Sem Horas'; // Retorna 'null' se a hora for nula ou indefinida
+  // Função para converter horário "HH:mm" em minutos
+  const convertToMinutes = (time) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+  
+  // Função para formatar a hora considerando o fuso horário de Manaus (UTC-4)
+  const formatHour = (datetime) => {
+    if (!datetime) {
+      return 'Sem Horas'; // Retorna 'Sem Horas' se a hora for nula ou indefinida
     }
   
-    // Converte para objeto Date e verifica se é válido
-    const parsedDate = new Date(date);
+    const parsedDate = new Date(datetime);
     if (isNaN(parsedDate.getTime())) {
       return 'Hora inválida'; // Retorna mensagem padrão se a hora for inválida
     }
   
-    // Retorna a hora formatada
-    return parsedDate.toLocaleTimeString('pt-BR', {
+    // Para o horário de Manaus, o fuso horário é UTC-4, então a diferença é -4 horas
+    const manaustimeOffset = -4 * 60; // Fuso horário de Manaus é UTC-4 (4 horas a menos que UTC)
+  
+    // Ajustando o horário local, subtraindo 4 horas para ajustar para Manaus
+    const localDate = new Date(parsedDate.getTime() - (manaustimeOffset * 60000));
+  
+    // Formata a hora para exibição no formato 'HH:mm'
+    return localDate.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false, // Formato 24 horas
+      hour12: false, // Formato de 24 horas
     });
   };
   
+  // Função para formatar a data considerando o fuso horário de Manaus (UTC-4)
+  const formatDate = (date) => {
+    if (!date || isNaN(new Date(date).getTime())) {
+      return 'Data inválida'; // Retorna mensagem padrão se a data for inválida
+    }
   
-
+    // Converte a data para o objeto Date
+    const parsedDate = new Date(date);
+    const manaustimeOffset = -4 * 60; // Fuso horário de Manaus é UTC-4 (4 horas a menos que UTC)
+  
+    // Ajusta a data para o fuso horário de Manaus
+    const localDate = new Date(parsedDate.getTime() - (manaustimeOffset * 60000)); // Ajuste para Manaus
+  
+    // Formata a data para exibição no formato 'dd/MM/yyyy'
+    return localDate.toLocaleDateString('pt-BR');
+  };
+  
+  
   // Função para abrir/fechar o modal
   const handleActivityModalToggle = (projectId) => {
     setSelectedProjectId(projectId);  // Armazena o ID do projeto
@@ -441,7 +488,7 @@ const Projects = () => {
   
       // Requisição POST
       const postResponse = await axios.post(
-        `http://PC107662:4001/registroDeAtividades`,
+        `http://PC107662:4002/registroDeAtividades`,
         formData,
         {
           headers: {
@@ -451,7 +498,7 @@ const Projects = () => {
       );
   
       // Atualiza atividades após sucesso
-      const getResponse = await axios.get(`http://PC107662:4001/registroDeAtividades/projeto/${selectedProjectId}` );
+      const getResponse = await axios.get(`http://PC107662:4002/registroDeAtividades/projeto/${selectedProjectId}` );
       setActivities((prev) => ({ ...prev, [selectedProjectId]: getResponse.data }));
   
       // Fecha modal e reseta formulário
@@ -486,7 +533,7 @@ const Projects = () => {
   const handleDownloadActivities = async (id) => {
     try {
       // Construir o link do PDF
-      const pdfUrl = `http://PC107662:4001/gerar-pdf/${id}`;
+      const pdfUrl = `http://PC107662:4002/gerar-pdf/${id}`;
   
       // Abrir o PDF em uma nova aba
       const newWindow = window.open(pdfUrl, '_blank');
@@ -1002,19 +1049,25 @@ const Projects = () => {
               <td className="border px-4 py-2">{formatHour(activity.HoraFinal)}</td>
               <td className="border px-4 py-2">
                 <button
-                  onClick={() => handleLoadAttachments(activity.ID)}
+                  onClick={() => {
+                    setActivityId(activity.ID); // Define o ID da atividade ao clicar
+                    setShowActivityPopup(true); // Abre o popup
+                  }}
                   className="text-blue-500 hover:text-blue-700"
                 >
                   Mostrar Anexos
                 </button>
               </td>
             </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-4 text-right">
+        <p className="text-sm font-semibold">Total de Horas: {totalHoras}</p>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };
