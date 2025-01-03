@@ -196,6 +196,7 @@ const Projects = () => {
       alert("Erro ao carregar anexos. Por favor, tente novamente mais tarde.");
     }
   };
+  
 
   const handleStatusChange = async (projectID, newStatus) => {
     // Atualiza o estado local
@@ -980,6 +981,8 @@ const Projects = () => {
     </div>
   </div>
 )}
+
+
 {showPDFModal && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl h-full max-h-[90vh] flex flex-col">
@@ -996,7 +999,7 @@ const Projects = () => {
         src={pdfURL}
         title="PDF Viewer"
         className="w-full h-full border rounded"
-        style={{ objectFit: 'contain', minHeight: '400px', maxHeight: '80vh' }} // Ajuste a altura e contenção
+        style={{ objectFit: 'contain', minHeight: '300px', maxHeight: '80vh' }} // Ajuste a altura e contenção
       />
       <div className="mt-4 flex justify-end">
         <button
@@ -1050,8 +1053,7 @@ const Projects = () => {
               <td className="border px-4 py-2">
                 <button
                   onClick={() => {
-                    setActivityId(activity.ID); // Define o ID da atividade ao clicar
-                    setShowActivityPopup(true); // Abre o popup
+                    handleLoadAttachments(activity.ID); // Abre o popup
                   }}
                   className="text-blue-500 hover:text-blue-700"
                 >
