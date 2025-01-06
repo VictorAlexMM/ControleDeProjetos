@@ -170,32 +170,33 @@ const Projects = () => {
     arrows: true,
   };
 
-  const handleLoadAttachments = async (activityId) => {
-    try {
-      const response = await axios.get(`http://PC107662:4002/registroDeAtividades/anexos/${activityId}`);
-      const attachmentsData = response.data.anexos;
-  
-      if (!attachmentsData || attachmentsData.length === 0) {
-        alert("Nenhum anexo encontrado para esta atividade.");
-        return;
-      }
-  
-      const attachments = attachmentsData.map((attachment) => {
-        const { nome, url } = attachment;
-        if (!url || url.trim() === "") {
-          console.warn("Anexo sem URL:", attachment);
-          return null;
-        }
-        return { nome, url };
-      });
-  
-      setAttachments(attachments.filter(Boolean));
-      setShowAttachmentsModal(true);
-    } catch (error) {
-      console.error("Erro ao carregar anexos:", error);
-      alert("Erro ao carregar anexos. Por favor, tente novamente mais tarde.");
+const handleLoadAttachments = async (id) => {
+  try {
+    const response = await axios.get(`http://PC107662:4002/registroDeAtividades/projeto/${id}`);
+    const attachmentsData = response.data;
+
+    if (!attachmentsData || attachmentsData.length === 0) {
+      alert("Nenhum anexo encontrado para esta atividade.");
+      return;
     }
-  };
+
+    // Mapeia os anexos para extração de nome e URL
+    const attachments = attachmentsData.map(({ fileUrl, QualAtividade }) => {
+      if (!fileUrl || fileUrl.trim() === "") {
+        console.warn("Anexo sem URL:", { fileUrl, QualAtividade });
+        return null;
+      }
+      return { nome: QualAtividade, url: fileUrl };
+    });
+
+    // Filtra anexos válidos e atualiza estado
+    setAttachments(attachments.filter(Boolean));
+    setShowAttachmentsModal(true);
+  } catch (error) {
+    console.error("Erro ao carregar anexos:", error);
+    alert("Erro ao carregar anexos. Por favor, tente novamente mais tarde.");
+  }
+};
   
 
   const handleStatusChange = async (projectID, newStatus) => {
@@ -895,8 +896,8 @@ const Projects = () => {
       
       {showAttachmentsModal && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-lg shadow-lg relative w-[1440px] h-[800px]">
-      <h3 className="text-lg font-semibold">Anexos</h3>
+    <div className="bg-white p-4 rounded-lg shadow-lg relative w-[90%] max-w-[1440px] h-[80vh] flex flex-col">
+      <h3 className="text-lg font-semibold mb-4">Anexos</h3>
       <button
         onClick={handleCloseAttachmentsModal}
         className="text-gray-500 hover:text-gray-800 absolute top-4 right-4"
@@ -904,42 +905,10 @@ const Projects = () => {
         <XMarkIcon className="h-5 w-5" />
       </button>
 
-      {/* Renderiza o conteúdo conforme o tipo do arquivo */}
-      {attachments.some(attachment => attachment.url.split('.').pop()?.toLowerCase() === "pdf") ? (
-        // Exibe o PDF fora do slider
-        attachments.map((attachment, index) => {
-          const { nome, url } = attachment;
-
-          if (!url) {
-            console.warn("Anexo sem URL:", attachment);
-            return null;
-          }
-
-          const fileExtension = url.split('.').pop()?.toLowerCase();
-          const tipo = fileExtension === "pdf"
-            ? "pdf"
-            : ["jpg", "jpeg", "png", "gif"].includes(fileExtension)
-            ? "image"
-            : "unknown";
-
-          if (tipo === "pdf") {
-            return (
-              <div key={index} className="flex justify-center items-center mb-4 w-full h-full">
-                <iframe
-                  src={url}
-                  className="w-full h-full"  // Ajuste para preencher o modal
-                  style={{border: 'none'}}
-                  title={nome}
-                />
-              </div>
-            );
-          }
-          return null;
-        })
-      ) : (
-        // Exibe o slider normalmente
-        <Slider {...sliderSettings}>
-          {attachments.map((attachment, index) => {
+      {/* Container de anexos */}
+      <div className="flex flex-1 justify-start items-center overflow-auto w-full h-full">
+        {attachments.some(attachment => attachment.url.split('.').pop()?.toLowerCase() === "pdf") ? (
+          attachments.map((attachment, index) => {
             const { nome, url } = attachment;
 
             if (!url) {
@@ -948,36 +917,51 @@ const Projects = () => {
             }
 
             const fileExtension = url.split('.').pop()?.toLowerCase();
-            const tipo =
-              fileExtension === "pdf"
-                ? "pdf"
-                : ["jpg", "jpeg", "png", "gif"].includes(fileExtension)
-                ? "image"
-                : "unknown";
+            const tipo = fileExtension === "pdf"
+              ? "pdf"
+              : ["jpg", "jpeg", "png", "gif"].includes(fileExtension)
+              ? "image"
+              : "unknown";
 
-            return (
-              <div key={index} className="flex justify-center items-center mb-4 w-full h-full">
-                {tipo === "image" ? (
-                  <img
-                    src={url}
-                    alt={nome}
-                    className="max-w-full max-h-full object-contain"  // Ajuste de imagem
-                  />
-                ) : tipo === "pdf" ? (
+            if (tipo === "pdf") {
+              return (
+                <div key={index} className="w-full h-[90%] flex justify-center items-start mt-[-20px]">
                   <iframe
                     src={url}
-                    className="w-full h-full"  // Ajuste para preencher o modal
-                    style={{border: 'none'}}
+                    className="w-full h-[69vh]"
+                    style={{ border: 'none' }}
                     title={nome}
                   />
-                ) : (
-                  <div className="text-center text-gray-500">Tipo de arquivo não suportado</div>
-                )}
-              </div>
-            );
-          })}
-        </Slider>
-      )}
+                </div>
+              );
+            }
+            return null;
+          })
+        ) : (
+          // Exibe apenas a primeira imagem
+          <div className="flex justify-center items-center w-full h-full">
+            {attachments
+              .filter((attachment, index, self) => index === self.findIndex((t) => t.url === attachment.url))  // Filtra duplicados
+              .find(attachment => {
+                const { url } = attachment;
+                const fileExtension = url.split('.').pop()?.toLowerCase();
+                return ["jpg", "jpeg", "png", "gif"].includes(fileExtension);  // Verifica se é imagem
+              }) ? (
+                <img
+                  src={attachments
+                    .filter((attachment, index, self) => index === self.findIndex((t) => t.url === attachment.url))  // Filtra duplicados
+                    .find(attachment => {
+                      const { url } = attachment;
+                      const fileExtension = url.split('.').pop()?.toLowerCase();
+                      return ["jpg", "jpeg", "png", "gif"].includes(fileExtension);  // Verifica se é imagem
+                    }).url}
+                  alt="Anexo"
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : null}
+          </div>
+        )}
+      </div>
     </div>
   </div>
 )}
