@@ -42,20 +42,6 @@ const Sidenav = ({ isOpen, toggleSidenav }) => {
           <FolderIcon className="h-5 w-5" />
           {isOpen && <span className="ml-2">Projetos</span>}
         </li>
-        <li
-          className="flex items-center p-3 hover:bg-gray-700 cursor-pointer w-full"
-          onClick={() => handleNavigation('/projeto/clock')}  // Roteia para a página relógio de ponto
-        >
-          <ClockIcon className="h-5 w-5" />
-          {isOpen && <span className="ml-2">Relógio de Ponto</span>}
-        </li>
-        <li
-          className="flex items-center p-3 hover:bg-gray-700 cursor-pointer w-full"
-          onClick={() => handleNavigation('/projeto/saldodehoras')}  // Roteia para a página projetos
-        >
-          <BanknotesIcon className="h-5 w-5" />
-          {isOpen && <span className="ml-2">Saldo de Horas</span>}
-        </li>
       </ul>
       <div className="p-4">
         <button 

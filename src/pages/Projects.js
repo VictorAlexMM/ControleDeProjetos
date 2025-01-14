@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Slider from "react-slick"; // Importando o carrossel
-import { PlusIcon, XMarkIcon, ArrowDownTrayIcon, PencilIcon  } from '@heroicons/react/24/solid';
+import { PlusIcon, XMarkIcon, ArrowDownTrayIcon, PencilIcon, DocumentTextIcon, CheckIcon} from '@heroicons/react/24/solid';
 
 import "slick-carousel/slick/slick.css"; 
 import "slick-carousel/slick/slick-theme.css";
 
 const Projects = () => {
   const [projects, setProjects] = useState([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(""); 
   const [activities, setActivities] = useState({});
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -89,19 +89,18 @@ const Projects = () => {
   
   useEffect(() => {
     if (showActivityPopup && activityId) {
-      // Fazendo a requisição para buscar o total de horas com base no ID
       axios
-        .get(`https://pc107662:4003/api/total-horas/${activityId}`)
-        .then((response) => {
-          setTotalHoras(response.data.totalHoras); // Atualiza com os dados retornados
-        })
-        .catch((error) => {
-          console.error('Erro ao buscar total de horas:', error);
-          setTotalHoras('0h:0m:0s'); // Define um valor padrão em caso de erro
-        });
+          .get(`https://pc107662:4003/api/total-horas/${activityId}`)
+          .then((response) => {
+            console.log('Total Horas:', response.data.totalHoras); // Verificar o valor retornado
+            setTotalHoras(response.data.totalHoras);
+          })
+          .catch((error) => {
+            console.error('Erro ao buscar total de horas:', error);
+            setTotalHoras('0h:0m');
+          });
     }
-  }, [showActivityPopup, activityId]); // Dependente do showActivityPopup e activityId
-  
+  }, [showActivityPopup, activityId]);
   
 
   const handleOpenPDFModal = async (project) => {
@@ -171,17 +170,22 @@ const Projects = () => {
         return;
       }
   
+      // Log para verificar os dados retornados
+      console.log("Dados retornados:", attachmentsData);
+  
       // Mapeia os anexos para extração de nome e URL, tratando múltiplos arquivos
-      const attachments = attachmentsData.flatMap(({ fileUrls, QualAtividade }) => {
+      const attachments = attachmentsData.flatMap(({ fileUrls, QualAtividade, Cargo, ValorOperador }) => {
         if (!fileUrls || fileUrls.length === 0) {
           console.warn("Anexo sem URL:", { fileUrls, QualAtividade });
           return [];
         }
   
-        // Mapeia cada URL e associa com o nome da atividade
+        // Mapeia cada URL e associa com os campos relevantes
         return fileUrls.map((url) => ({
           nome: QualAtividade,
-          url
+          cargo: Cargo || "Não informado",
+          valorOperador: ValorOperador || "0.00",
+          url,
         }));
       });
   
@@ -192,9 +196,8 @@ const Projects = () => {
       console.error("Erro ao carregar anexos:", error);
       alert("Erro ao carregar anexos. Por favor, tente novamente mais tarde.");
     }
-  }; 
+  };
   
-
   const handleStatusChange = async (projectID, newStatus) => {
     // Atualiza o estado local
     setStatusMap((prevState) => ({
@@ -326,55 +329,47 @@ const Projects = () => {
         return acc;
       }, {});
   
-      // Para cada data, calcular o total de horas
+      // Para cada data, calcular o total de horas considerando apenas o menor HoraInicial e o maior HoraFinal
       for (const date in activitiesGroupedByDate) {
-        let dateMinutes = 0;
+        const dailyActivities = activitiesGroupedByDate[date];
   
-        activitiesGroupedByDate[date].forEach((activity) => {
-          // Extrair HoraInicial e HoraFinal no formato HH:mm e ajustar para Manaus
-          const startTime = formatHour(activity.HoraInicial); // Ex: "10:00"
-          const endTime = formatHour(activity.HoraFinal); // Ex: "15:00"
+        // Encontrar o menor HoraInicial e o maior HoraFinal do dia
+        const startTimes = dailyActivities.map((a) => convertToMinutes(formatHour(a.HoraInicial)));
+        const endTimes = dailyActivities.map((a) => convertToMinutes(formatHour(a.HoraFinal)));
   
-          // Converter para minutos (com base no horário ajustado)
-          const startTimeInMinutes = convertToMinutes(startTime);
-          const endTimeInMinutes = convertToMinutes(endTime);
+        const earliestStart = Math.min(...startTimes); // Menor HoraInicial
+        const latestEnd = Math.max(...endTimes); // Maior HoraFinal
   
-          // Ajustar para excluir o intervalo de 12h às 13h
-          let adjustedMinutes = endTimeInMinutes - startTimeInMinutes;
+        let adjustedMinutes = latestEnd - earliestStart;
   
-          // Verificar se a atividade atravessa o intervalo de 12h às 13h
-          if (startTimeInMinutes < convertToMinutes('13:00') && endTimeInMinutes > convertToMinutes('12:00')) {
-            // A atividade atravessa o intervalo de 12h às 13h
-            const overlapStart = Math.max(startTimeInMinutes, convertToMinutes('12:00')); // Início do intervalo de overlap
-            const overlapEnd = Math.min(endTimeInMinutes, convertToMinutes('13:00')); // Fim do intervalo de overlap
+        // Ajustar para excluir o intervalo de 12h às 13h
+        if (earliestStart < convertToMinutes('13:00') && latestEnd > convertToMinutes('12:00')) {
+          const overlapStart = Math.max(earliestStart, convertToMinutes('12:00'));
+          const overlapEnd = Math.min(latestEnd, convertToMinutes('13:00'));
   
-            if (overlapStart < overlapEnd) {
-              // A atividade atravessa o intervalo de 12h às 13h
-              adjustedMinutes -= (overlapEnd - overlapStart);
-              console.log(`Descontando minutos: ${(overlapEnd - overlapStart)} minutos`);
-            }
+          if (overlapStart < overlapEnd) {
+            adjustedMinutes -= overlapEnd - overlapStart;
+            console.log(`Descontando minutos: ${overlapEnd - overlapStart} minutos`);
           }
+        }
   
-          // Acumular o total de minutos para cada atividade
-          dateMinutes += adjustedMinutes > 0 ? adjustedMinutes : 0;
-        });
-  
-        console.log(`Total de minutos para ${date}: ${dateMinutes}`);
-        totalMinutes += dateMinutes;
+        console.log(`Total de minutos para ${date}: ${adjustedMinutes}`);
+        totalMinutes += adjustedMinutes > 0 ? adjustedMinutes : 0;
       }
   
       // Convertendo total de minutos para horas e minutos
       const totalHoras = `${Math.floor(totalMinutes / 60)}h:${Math.round(totalMinutes % 60)}m`;
   
-      // Atualizando o estado com o total de horas
-      setSelectedActivity(activities);
-      setTotalHoras(totalHoras);
-      setShowActivityPopup(true); // Mostrar o popup de atividades
+      // Atualizando o estado com as atividades e o total de horas
+      setSelectedActivity(activities); // Define as atividades no estado
+      setTotalHoras(totalHoras); // Define o total de horas no estado
+      setShowActivityPopup(true); // Exibe o popup
     } catch (error) {
       console.error('Erro ao buscar atividades:', error);
-      alert('Sem atividade registrada'); // Exibir alerta em caso de erro
+      alert('Erro ao buscar atividades'); // Exibe alerta em caso de erro
     }
   };
+  
   
   // Função para extrair hora no formato HH:mm a partir de uma data completa
   const extractTime = (datetime) => {
@@ -548,6 +543,129 @@ const Projects = () => {
     }
   };
   
+  const calculateOperatorCost = (cargo, horaInicial, horaFinal, quantasPessoas) => {
+    const cargos = {
+      encarregado: { taxaNormal: 48, taxaExtra: 96 },
+      cabista: { taxaNormal: 44, taxaExtra: 88 },
+    };
+  
+    if (!cargos[cargo]) {
+      console.error(`Cargo inválido: ${cargo}`);
+      return 0;
+    }
+  
+    const { taxaNormal, taxaExtra } = cargos[cargo];
+    const horaExtraInicio = 17;
+  
+    try {
+      // Função para extrair horas do formato ISO 8601
+      const extractHour = (isoDate) => {
+        const date = new Date(isoDate);
+        if (isNaN(date)) throw new Error(`Data inválida: ${isoDate}`);
+        return date.getHours(); // Retorna apenas a hora
+      };
+  
+      // Extração das horas de entrada e saída
+      const inicio = extractHour(horaInicial);
+      const fim = extractHour(horaFinal);
+  
+      // Validação dos horários
+      if (inicio >= fim) {
+        console.error("Horários inválidos:", { horaInicial, horaFinal });
+        return 0;
+      }
+  
+      // Cálculo de horas normais e extras
+      const horasNormais = Math.max(0, Math.min(fim, horaExtraInicio) - inicio);
+      const horasExtras = Math.max(0, fim - horaExtraInicio);
+  
+      // Cálculo do custo total
+      const custoNormal = horasNormais * taxaNormal;
+      const custoExtra = horasExtras * taxaExtra;
+  
+      const custoTotal = (custoNormal + custoExtra) * quantasPessoas;
+  
+      return isNaN(custoTotal) ? 0 : custoTotal;
+    } catch (error) {
+      console.error("Erro ao calcular o custo do operador:", error);
+      return 0;
+    }
+  };
+  
+  const handleEditActivity = (id, updatedFields) => {
+    setSelectedActivity((prev) =>
+      prev.map((activity) =>
+        activity.ID === id
+          ? {
+              ...activity,
+              ...updatedFields,
+              ValorOperador: calculateOperatorCost(
+                updatedFields.Cargo || activity.Cargo,
+                activity.HoraInicial,
+                activity.HoraFinal,
+                activity.QuantasPessoas
+              ),
+            }
+          : activity
+      )
+    );
+  };
+  
+  const toggleEditActivity = async (id, isEditing) => {
+    setSelectedActivity((prev) =>
+      prev.map((activity) => {
+        if (activity.ID === id) {
+          if (!isEditing) {
+            const valorOperador = calculateOperatorCost(
+              activity.Cargo,
+              activity.HoraInicial,
+              activity.HoraFinal,
+              activity.QuantasPessoas
+            );
+  
+            saveActivityToDatabase({
+              ID: activity.ID,
+              Cargo: activity.Cargo,
+              ValorOperador: valorOperador,
+            });
+  
+            return {
+              ...activity,
+              ValorOperador: valorOperador,
+              isEditing: false,
+            };
+          }
+  
+          return { ...activity, isEditing };
+        }
+        return activity;
+      })
+    );
+  };
+  
+  const saveActivityToDatabase = async (data) => {
+    try {
+      await axios.put(`http://localhost:4002/registroDeAtividades/valor/homem`, data);
+      console.log("Atividade atualizada com sucesso:", data);
+    } catch (error) {
+      console.error("Erro ao salvar no banco:", error);
+    }
+  };
+
+  const totalValorOperador = selectedActivity
+  .reduce((total, activity) => {
+    // Garantir que ValorOperador seja uma string antes de usar replace
+    const valorString = String(activity.ValorOperador);
+    // Remove 'R$', troca vírgula por ponto e transforma em número
+    const valorNumerico = parseFloat(valorString.replace('R$', '').replace(',', '.'));
+    return total + (isNaN(valorNumerico) ? 0 : valorNumerico);
+  }, 0);
+
+    // Garantir que o total seja formatado com duas casas decimais
+    const totalFormatado = totalValorOperador.toFixed(2);
+
+    // Exibe o valor total formatado
+    console.log(totalFormatado);
   
   const handleShowProjectModal = () => {
     setShowProjectModal(true);
@@ -1059,7 +1177,6 @@ const Projects = () => {
     </div>
   </div>
 )}
-
 {showActivityPopup && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
     <div className="bg-white p-6 rounded-lg shadow-lg w-[1440px] h-[900px] relative">
@@ -1076,9 +1193,11 @@ const Projects = () => {
             <th className="border px-4 py-2">Atividade</th>
             <th className="border px-4 py-2">Data</th>
             <th className="border px-4 py-2">Responsável</th>
+            <th className="border px-4 py-2">Cargo</th>
             <th className="border px-4 py-2">Quantas Pessoas</th>
             <th className="border px-4 py-2">Hora Inicial</th>
             <th className="border px-4 py-2">Hora Final</th>
+            <th className="border px-4 py-2">Valor Operador</th>
             <th className="border px-4 py-2">Ações</th>
           </tr>
         </thead>
@@ -1088,18 +1207,52 @@ const Projects = () => {
               <td className="border px-4 py-2">{activity.QualAtividade}</td>
               <td className="border px-4 py-2">{formatDate(activity.DataDaAtividade)}</td>
               <td className="border px-4 py-2">{activity.Responsavel}</td>
+              <td className="border px-4 py-2">
+                <select
+                  value={activity.Cargo || ""}
+                  disabled={!activity.isEditing}
+                  onChange={(e) => handleEditActivity(activity.ID, { Cargo: e.target.value })}
+                  className={`border rounded p-1 ${
+                    activity.isEditing ? "bg-white" : "bg-gray-100"
+                  }`}
+                >
+                  <option value="" disabled>
+                    Selecione o cargo
+                  </option>
+                  <option value="cabista">Cabista</option>
+                  <option value="encarregado">Encarregado</option>
+                </select>
+              </td>
               <td className="border px-4 py-2">{activity.QuantasPessoas}</td>
               <td className="border px-4 py-2">{formatHour(activity.HoraInicial)}</td>
               <td className="border px-4 py-2">{formatHour(activity.HoraFinal)}</td>
               <td className="border px-4 py-2">
+                {activity.ValorOperador !== undefined && activity.ValorOperador !== null
+                  ? `R$ ${activity.ValorOperador.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                  : "R$ 0,00"}
+              </td>
+              <td className="border px-4 py-2 flex items-center space-x-2">
                 <button
-                  onClick={() => {
-                    handleLoadAttachments(activity.ID); // Abre o popup
-                  }}
+                  onClick={() => handleLoadAttachments(activity.ID)}
                   className="text-blue-500 hover:text-blue-700"
                 >
-                  Mostrar Anexos
+                  <DocumentTextIcon className="h-5 w-5" />
                 </button>
+                {!activity.isEditing ? (
+                  <button
+                    onClick={() => toggleEditActivity(activity.ID, true)}
+                    className="text-green-500 hover:text-green-700"
+                  >
+                    <PencilIcon className="h-5 w-5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => toggleEditActivity(activity.ID, false)}
+                    className="text-blue-500 hover:text-blue-700"
+                  >
+                    <CheckIcon className="h-5 w-5" />
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -1107,10 +1260,16 @@ const Projects = () => {
       </table>
       <div className="mt-4 text-right">
         <p className="text-sm font-semibold">Total de Horas: {totalHoras}</p>
+        <p className="text-sm font-semibold">
+          Valor Total Projeto:{" "}
+          {parseFloat(totalFormatado).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+        </p>
       </div>
     </div>
   </div>
 )}
+
+
     </div>
   );
 };
