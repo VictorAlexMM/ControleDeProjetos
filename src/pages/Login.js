@@ -1,58 +1,69 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const Login = ({ setIsLoggedIn }) => {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  const validateUsername = async (username) => {
-    try {
-      const response = await axios.post('http://mao-s038:5000/validateUser', {
-        username,
-      });
-      return response.data.valid;
-    } catch (error) {
-      setError('Erro ao validar username');
-      return false;
-    }
-  };
 
   const handleLogin = async () => {
     setError(null);
     setLoading(true);
 
-    const isUsernameValid = await validateUsername(username);
-    if (!isUsernameValid) {
-      setError('Username não encontrado');
-      setLoading(false);
-      return;
-    }
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const response = await axios.post('http://10.0.11.55:31636/api/v1/AuthAd', {
-        username,
-        password,
-      });
+      // Valida o username
+      const responseValidate = await axios.post(
+        "http://mao-s038:5000/validateUser",
+        { username }
+      );
 
-      localStorage.setItem('loggedUser', JSON.stringify({ username }));
-      setIsLoggedIn(true);
-      navigate('/portal/home');
+      if (!responseValidate.data.valid) {
+        setError("Username não encontrado");
+        setLoading(false);
+        return;
+      }
+
+      // Exibe o username no console
+      console.log("Username validado:", username);
+
+      // Autentica o usuário
+      const responseAuth = await axios.post(
+        "http://10.0.11.55:31636/api/v1/AuthAd",
+        { username, password }
+      );
+
+      // Antes de salvar no localStorage, logamos o valor de username
+      console.log(
+        "Valor de username antes de salvar no localStorage:",
+        username
+      );
+
+      // Salva o username no localStorage como string (verificação explícita)
+      localStorage.setItem("loggedUser", String(username));
+
+      // Log para verificar o valor salvo no localStorage
+      console.log(
+        "LoggedUser salvo no localStorage:",
+        localStorage.getItem("loggedUser")
+      );
+
+      // Define o estado de login como verdadeiro
+      setIsLoggedIn(username);
+      navigate("/portal/home");
     } catch (error) {
       if (error.response) {
         const { error: errorMessage } = error.response.data;
 
-        if (errorMessage === 'Senha incorreta') {
-          setError('A senha fornecida está incorreta. Tente novamente.');
+        if (errorMessage === "Senha incorreta") {
+          setError("A senha fornecida está incorreta. Tente novamente.");
         } else {
-          setError(errorMessage || 'User ou senha errada.');
+          setError(errorMessage || "Usuário ou senha inválidos.");
         }
       } else {
-        setError('Erro ao fazer login. Verifique sua conexão.');
+        setError("Erro ao fazer login. Verifique sua conexão.");
       }
     } finally {
       setLoading(false);
@@ -60,7 +71,7 @@ const Login = ({ setIsLoggedIn }) => {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleLogin();
     }
   };
@@ -70,7 +81,8 @@ const Login = ({ setIsLoggedIn }) => {
       <div
         className="absolute top-0 left-0 w-full h-full bg-cover bg-center"
         style={{
-          backgroundImage: 'url("https://www.example.com/path/to/your/background.jpg")',
+          backgroundImage:
+            'url("https://www.example.com/path/to/your/background.jpg")',
         }}
       ></div>
 
@@ -83,7 +95,7 @@ const Login = ({ setIsLoggedIn }) => {
               placeholder="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              onKeyDown={handleKeyDown} // Adiciona suporte para pressionar Enter
+              onKeyDown={handleKeyDown}
               required
               className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -94,18 +106,20 @@ const Login = ({ setIsLoggedIn }) => {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown} // Adiciona suporte para pressionar Enter
+              onKeyDown={handleKeyDown}
               required
               className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <button
             type="button"
-            className={`w-full p-3 text-white font-bold rounded-lg ${loading ? 'bg-gray-400' : 'bg-red-500 hover:bg-red-600'} focus:outline-none`}
+            className={`w-full p-3 text-white font-bold rounded-lg ${
+              loading ? "bg-gray-400" : "bg-red-500 hover:bg-red-600"
+            } focus:outline-none`}
             onClick={handleLogin}
             disabled={loading}
           >
-            {loading ? 'Carregando...' : 'Login'}
+            {loading ? "Carregando..." : "Login"}
           </button>
         </div>
 
