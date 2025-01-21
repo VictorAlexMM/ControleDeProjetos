@@ -609,8 +609,8 @@ const Projects = () => {
     quantasPessoas
   ) => {
     const cargos = {
-      encarregado: { taxaNormal: 48, taxaExtra: 96 },
-      cabista: { taxaNormal: 44, taxaExtra: 88 },
+      encarregado: { taxaNormal: 44, taxaExtra: 88 },
+      cabista: { taxaNormal: 40, taxaExtra: 80 },
     };
 
     if (!cargos[cargo]) {
@@ -1193,7 +1193,7 @@ const Projects = () => {
                         >
                           <iframe
                             src={url}
-                            className="w-[90%] h-[90%]"
+                            className="w-[100%] h-[100%]"
                             style={{ border: "none" }}
                             title={nome}
                           />
@@ -1210,7 +1210,7 @@ const Projects = () => {
                           <img
                             src={url}
                             alt={nome}
-                            className="max-w-full max-h-full object-contain"
+                            className="max-w-full max-h-full object-contain" // ou object-cover, dependendo do seu caso
                           />
                         </div>
                       );
@@ -1244,7 +1244,7 @@ const Projects = () => {
                       >
                         <iframe
                           src={url}
-                          className="w-[90%] h-[90%]"
+                          className="w-[100%] h-[100%]"
                           style={{ border: "none" }}
                           title={nome}
                         />
@@ -1261,12 +1261,11 @@ const Projects = () => {
                         <img
                           src={url}
                           alt={nome}
-                          className="max-w-full max-h-full object-contain"
+                          className="max-w-full max-h-full object-contain" // Ajuste para manter a imagem dentro do modal
                         />
                       </div>
                     );
                   }
-
                   return null;
                 })
               )}

@@ -7,7 +7,7 @@ import Projects from './pages/Projects';
 
 function App() {
   const [isOpen, setIsOpen] = useState(true); // Controle da barra lateral
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Controle de login
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('loggedUser')); // Estado inicial baseado no localStorage
   const navigate = useNavigate();
   const location = useLocation(); // Usado para pegar a URL atual
 

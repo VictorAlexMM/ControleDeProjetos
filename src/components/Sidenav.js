@@ -30,13 +30,6 @@ const Sidenav = ({ isOpen, toggleSidenav }) => {
       <ul className="flex flex-col flex-grow">
         <li
           className="flex items-center p-3 hover:bg-gray-700 cursor-pointer w-full"
-          onClick={() => handleNavigation('/home')}  // Roteia para a página home
-        >
-          <HomeIcon className="h-5 w-5" />
-          {isOpen && <span className="ml-2">Home</span>}
-        </li>
-        <li
-          className="flex items-center p-3 hover:bg-gray-700 cursor-pointer w-full"
           onClick={() => handleNavigation('/projeto/projects')}  // Roteia para a página projetos
         >
           <FolderIcon className="h-5 w-5" />

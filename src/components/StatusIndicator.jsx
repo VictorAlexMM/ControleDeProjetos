@@ -13,7 +13,7 @@ const StatusIndicator = ({ project, setSelectedProject, setIsModalOpen }) => {
     const fetchStatus = async () => {
       try {
         const response = await axios.get(
-          `http://localhost:4002/api/projetos/status/${project.ID}`
+          `http://PC107662:4002/api/projetos/status/${project.ID}`
         );
         setStatus(response.data.status || "não iniciado"); // Atualiza com o status retornado ou mantém o padrão
       } catch (error) {
@@ -48,7 +48,9 @@ const StatusIndicator = ({ project, setSelectedProject, setIsModalOpen }) => {
         setSelectedProject(project);
         setIsModalOpen(true);
       }}
-      className={`absolute top-2 right-2 rounded-full flex items-center justify-center px-3 py-1 cursor-pointer ${getStatusColor(status)}`}
+      className={`absolute top-2 right-2 rounded-full flex items-center justify-center px-3 py-1 cursor-pointer ${getStatusColor(
+        status
+      )}`}
     >
       <span className="text-white text-xs">
         {status} {/* Exibe o nome completo do status */}

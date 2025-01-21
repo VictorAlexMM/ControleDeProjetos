@@ -52,7 +52,7 @@ const Login = ({ setIsLoggedIn }) => {
 
       // Define o estado de login como verdadeiro
       setIsLoggedIn(username);
-      navigate("/portal/home");
+      navigate("/projeto/projects");
     } catch (error) {
       if (error.response) {
         const { error: errorMessage } = error.response.data;
