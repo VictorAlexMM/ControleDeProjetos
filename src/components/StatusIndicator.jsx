@@ -13,7 +13,7 @@ const StatusIndicator = ({ project, setSelectedProject, setIsModalOpen }) => {
     const fetchStatus = async () => {
       try {
         const response = await axios.get(
-          `http://PC107662:4002/api/projetos/status/${project.ID}`
+          `http://PC101961:4002/api/projetos/status/${project.ID}`
         );
         setStatus(response.data.status || "não iniciado"); // Atualiza com o status retornado ou mantém o padrão
       } catch (error) {

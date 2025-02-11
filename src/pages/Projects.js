@@ -52,13 +52,13 @@ const Projects = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await axios.get("http://PC107662:4002/projetos");
+        const response = await axios.get("http://PC101961:4002/projetos");
         setProjects(response.data);
 
         // Busca observações para todos os projetos
         const observacaoPromises = response.data.map(async (project) => {
           const observacaoResponse = await axios.get(
-            `http://PC107662:4002/api/projetos/${project.ID}/observacao`
+            `http://PC101961:4002/api/projetos/${project.ID}/observacao`
           );
           return {
             id: project.ID,
@@ -102,7 +102,7 @@ const Projects = () => {
   useEffect(() => {
     if (showActivityPopup && activityId) {
       axios
-        .get(`https://pc107662:4003/api/total-horas/${activityId}`)
+        .get(`https://PC101961:4003/api/total-horas/${activityId}`)
         .then((response) => {
           console.log("Total Horas:", response.data.totalHoras); // Verificar o valor retornado
           setTotalHoras(response.data.totalHoras);
@@ -140,7 +140,7 @@ const Projects = () => {
       const dia = String(data.getDate()).padStart(2, "0");
 
       // Monta a URL para consumir a API
-      const url = `http://PC107662:4002/uploads/projeto/${ano}/${mes}/${dia}/${NomeProjeto}/${Layout}`;
+      const url = `http://PC101961:4002/uploads/projeto/${ano}/${mes}/${dia}/${NomeProjeto}/${Layout}`;
       console.log("URL gerada:", url);
 
       // Criação do modal popup
@@ -175,7 +175,7 @@ const Projects = () => {
   const handleLoadAttachments = async (id) => {
     try {
       const response = await axios.get(
-        `http://PC107662:4002/registroDeAtividades/projeto/${id}`
+        `http://PC101961:4002/registroDeAtividades/projeto/${id}`
       );
       const attachmentsData = response.data;
 
@@ -223,7 +223,7 @@ const Projects = () => {
 
     // Envia a alteração para a API
     try {
-      await fetch(`http://pc107662:4002/api/projetos/${projectID}`, {
+      await fetch(`http://PC101961:4002/api/projetos/${projectID}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -250,7 +250,7 @@ const Projects = () => {
 
     // Envia a alteração para a API
     try {
-      await fetch(`http://pc107662:4002/api/projetos/${projectID}`, {
+      await fetch(`http://PC101961:4002/api/projetos/${projectID}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -304,7 +304,7 @@ const Projects = () => {
 
     try {
       const response = await axios.post(
-        "http://PC107662:4002/projetos",
+        "http://PC101961:4002/projetos",
         formData,
         {
           headers: {
@@ -315,7 +315,7 @@ const Projects = () => {
 
       if (response.status === 201) {
         const projectsResponse = await axios.get(
-          "http://PC107662:4002/projetos"
+          "http://PC101961:4002/projetos"
         );
         setProjects(projectsResponse.data);
         setShowProjectModal(false);
@@ -339,7 +339,7 @@ const Projects = () => {
   const toggleActivities = async (id) => {
     try {
       const response = await axios.get(
-        `http://PC107662:4002/registroDeAtividades/projeto/${id}`
+        `http://PC101961:4002/registroDeAtividades/projeto/${id}`
       );
       const activities = response.data;
 
@@ -531,7 +531,7 @@ const Projects = () => {
 
       // Requisição POST
       const postResponse = await axios.post(
-        `http://PC107662:4002/registroDeAtividades`,
+        `http://PC101961:4002/registroDeAtividades`,
         formData,
         {
           headers: {
@@ -542,7 +542,7 @@ const Projects = () => {
 
       // Atualiza atividades após sucesso
       const getResponse = await axios.get(
-        `http://PC107662:4002/registroDeAtividades/projeto/${selectedProjectId}`
+        `http://PC101961:4002/registroDeAtividades/projeto/${selectedProjectId}`
       );
       setActivities((prev) => ({
         ...prev,
@@ -583,7 +583,7 @@ const Projects = () => {
   const handleDownloadActivities = async (id) => {
     try {
       // Construir o link do PDF
-      const pdfUrl = `http://PC107662:4002/gerar-pdf/${id}`;
+      const pdfUrl = `http://PC101961:4002/gerar-pdf/${id}`;
 
       // Abrir o PDF em uma nova aba
       const newWindow = window.open(pdfUrl, "_blank");
@@ -707,7 +707,7 @@ const Projects = () => {
   const saveActivityToDatabase = async (data) => {
     try {
       await axios.put(
-        `http://PC107662:4002/registroDeAtividades/valor/homem`,
+        `http://PC101961:4002/registroDeAtividades/valor/homem`,
         data
       );
     } catch (error) {}
